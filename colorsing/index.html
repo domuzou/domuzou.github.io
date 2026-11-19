@@ -1,0 +1,2518 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#12081f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="推し管理">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="apple-touch-startup-image" href="splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)">
+<link rel="apple-touch-startup-image" href="splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
+<link rel="apple-touch-startup-image" href="splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
+<link rel="apple-touch-startup-image" href="splash-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)">
+<link rel="apple-touch-startup-image" href="splash-1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)">
+<link rel="apple-touch-startup-image" href="splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
+<link rel="apple-touch-startup-image" href="splash-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)">
+<link rel="apple-touch-startup-image" href="splash-1080x2340.png" media="(device-width: 360px) and (device-height: 780px) and (-webkit-device-pixel-ratio: 3)">
+<title>ColorSing推し管理</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  :root{
+    --bg:#12081f; --bg2:#1a0d2e; --card:#221238; --card2:#2a1845;
+    --line:#3d2566; --txt:#f3efff; --sub:#b9a8dd; --dim:#8d7bb5;
+    --pur:#a855f7; --mag:#e935c1; --grad:linear-gradient(135deg,#a855f7,#e935c1);
+    --ok:#34d399; --ng:#f87171;
+  }
+  html,body{ background:var(--bg); color:var(--txt); font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif; }
+  #splash{
+    position:fixed; inset:0; z-index:300; background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+    transition:opacity .45s ease;
+  }
+  #splash.hide{ opacity:0; pointer-events:none; }
+  .splash-visual{ position:relative; width:184px; height:184px; }
+  .splash-logo{
+    position:absolute; inset:0; border-radius:28px; background:var(--grad);
+    display:flex; align-items:center; justify-content:center;
+    font-size:84px; font-weight:800; color:#fff;
+    box-shadow:0 10px 30px rgba(168,85,247,.45);
+  }
+  .splash-note{ position:absolute; right:14px; bottom:6px; font-size:44px; }
+  .splash-img{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+    border-radius:28px; box-shadow:0 10px 30px rgba(168,85,247,.35);
+  }
+  .splash-name{ font-size:17px; font-weight:700; letter-spacing:.04em; }
+  .splash-loading{ font-size:12px; color:var(--sub); animation:splashPulse 1.1s ease-in-out infinite; }
+  @keyframes splashPulse{ 0%,100%{ opacity:.35; } 50%{ opacity:1; } }
+  body{ padding-bottom:206px; }
+  header{
+    position:sticky; top:0; z-index:20; padding:14px 16px 10px;
+    background:linear-gradient(180deg,#1d0b36 0%, #12081f 100%);
+    border-bottom:1px solid var(--line);
+  }
+  header h1{ font-size:19px; letter-spacing:.02em; }
+  header h1 .accent{ background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  header h1 .ver{ font-size:11px; color:var(--dim); font-weight:400; letter-spacing:.03em; }
+  header .today{ color:var(--sub); font-size:12px; margin-top:3px; }
+  main{ padding:14px 14px 8px; max-width:640px; margin:0 auto; }
+  .view{ display:none; }
+  .view.active{ display:block; }
+
+  /* 配信者カード */
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:14px; margin-bottom:12px; cursor:pointer;
+  }
+  .card:active{ background:var(--card2); }
+  .card-top{ display:flex; align-items:center; gap:11px; }
+  .avatar{
+    width:48px; height:48px; border-radius:50%; flex:0 0 auto; overflow:hidden; padding:0;
+    display:flex; align-items:center; justify-content:center; font-size:24px;
+    background:radial-gradient(circle at 30% 30%, #4c1d95, #2a1845);
+    border:2px solid var(--pur);
+  }
+  .avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .card-main{ flex:1; min-width:0; }
+  .card-name{ font-size:16px; font-weight:700; }
+  .card-foot{ display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .prio-wrap{ display:flex; align-items:center; gap:4px; font-size:11px; color:var(--sub); font-weight:700; }
+  .prio-select{ width:auto; padding:3px 4px; font-size:12px; font-weight:700; }
+  .card-foot .badge{ margin-left:0; }
+  .card-foot .hide-btn{ margin-left:auto; }
+  .card-name .mark{ color:var(--mag); margin-left:4px; }
+  .card-meta{ color:var(--sub); font-size:12px; margin-top:2px; }
+  .badge{
+    margin-left:auto; flex:0 0 auto; font-size:11px; font-weight:700;
+    padding:4px 9px; border-radius:999px; border:1px solid;
+  }
+  .badge.ok{ color:var(--ok); border-color:var(--ok); background:rgba(52,211,153,.08); }
+  .badge.ng{ color:var(--ng); border-color:var(--ng); background:rgba(248,113,113,.08); }
+  .hide-btn{
+    flex:0 0 auto; font-size:11px; padding:4px 9px; border-radius:999px;
+    border:1px solid var(--line); background:var(--bg2); color:var(--sub); cursor:pointer;
+  }
+  .card.is-hidden{ opacity:.72; }
+  .card.is-priority{ border-color:rgba(250,204,21,.55); }
+  .card-event{
+    margin-top:10px; font-size:12.5px; font-weight:700; color:#fbbf24;
+    background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.35);
+    border-radius:10px; padding:7px 10px;
+  }
+  .ev-item{ display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px dashed var(--line); font-size:13px; }
+  .ev-item .ev-when{ color:var(--sub); font-size:12px; }
+  .ev-badge{ font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:999px; border:1px solid; white-space:nowrap; }
+  .ev-badge.live{ color:var(--ok); border-color:var(--ok); }
+  .ev-badge.soon{ color:#fbbf24; border-color:#fbbf24; }
+  .ev-badge.future{ color:var(--sub); border-color:var(--line); }
+  .ev-badge.past{ color:var(--dim); border-color:var(--line); }
+  .hide-btn.on{ color:#facc15; border-color:rgba(250,204,21,.6); }
+  .card-nums{ display:flex; gap:8px; margin-top:12px; }
+  .num{
+    flex:1; background:var(--bg2); border:1px solid var(--line); border-radius:10px;
+    padding:7px 4px; text-align:center;
+  }
+  .num .v{ font-size:15px; font-weight:700; }
+  .num .l{ font-size:10px; color:var(--dim); margin-top:1px; }
+  .card-pt-select{
+    width:100%; padding:2px 1px; font-size:15px; font-weight:700; text-align:center;
+    border:none; background:transparent; cursor:pointer;
+  }
+  .card-pt-select:focus{ outline:1px solid var(--pur); outline-offset:1px; }
+  .empty{
+    text-align:center; color:var(--sub); padding:56px 20px; line-height:1.9;
+    border:1px dashed var(--line); border-radius:16px; font-size:14px;
+  }
+  .sort-bar{
+    display:flex; align-items:center; gap:8px; margin-bottom:12px;
+    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:9px 10px;
+  }
+  .sort-bar label{ font-size:12px; color:var(--sub); flex:0 0 auto; font-weight:700; }
+  .sort-bar select{ flex:1; padding:8px 9px; font-size:13px; }
+  .sort-bar .sort-count{ font-size:11px; color:var(--dim); flex:0 0 auto; }
+  #fab{
+    position:fixed; right:18px; bottom:152px; z-index:30;
+    width:56px; height:56px; border-radius:50%; border:none;
+    background:var(--grad); color:#fff; font-size:30px; line-height:1;
+    box-shadow:0 6px 18px rgba(233,53,193,.45); cursor:pointer;
+  }
+
+  /* 下部タブ */
+  nav{
+    position:fixed; left:0; right:0; bottom:0; z-index:25;
+    display:flex; background:#180b2c; border-top:1px solid var(--line);
+    /* 下の余白帯は Netlify バッジ（右下フローティング）の退避スペース */
+    padding-bottom:calc(env(safe-area-inset-bottom) + 56px);
+  }
+  nav button{
+    flex:1; background:none; border:none; color:var(--dim);
+    padding:9px 0 11px; font-size:11px; cursor:pointer;
+  }
+  nav button .ic{ display:block; font-size:20px; margin-bottom:2px; }
+  nav button.on{ color:#fff; }
+  nav button.on .ic{ filter:drop-shadow(0 0 6px rgba(233,53,193,.8)); }
+  /* 左下の余白帯に歌推し人数を表示（右下はNetlifyバッジの退避スペース） */
+  #month-stats{
+    position:absolute; left:10px; bottom:calc(env(safe-area-inset-bottom) + 7px);
+    font-size:11px; line-height:1.55; color:var(--sub); pointer-events:none; white-space:nowrap;
+  }
+
+  /* 詳細 */
+  .backbtn{ background:none; border:none; color:var(--sub); font-size:14px; padding:4px 0 10px; cursor:pointer; }
+  .panel{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px; }
+  .panel h3{ font-size:13px; color:var(--sub); margin-bottom:10px; letter-spacing:.05em; }
+  .jun-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
+  .jun-row:last-child{ border-bottom:none; }
+  .jun-label{ width:118px; flex:0 0 auto; font-size:13px; }
+  .jun-label .days{ display:block; color:var(--dim); font-size:10px; }
+  .visit-box{ margin-top:12px; border-top:1px solid var(--line); padding-top:12px; }
+  .visit-line{ font-size:13px; margin-bottom:4px; }
+  .card-visit{ display:flex; align-items:center; gap:8px; font-size:12px; margin-top:8px; font-weight:700; }
+  .card-visit.done{ color:var(--ok); }
+  .card-visit.yet{ color:var(--sub); }
+  .visit-undo{
+    margin-left:auto; flex:0 0 auto; font-size:11px; font-weight:700; padding:3px 9px;
+    border-radius:999px; border:1px solid var(--line); background:var(--bg2); color:var(--sub); cursor:pointer;
+  }
+  .link-chips{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .link-chip{
+    display:inline-block; padding:5px 12px; border-radius:999px; font-size:12px; font-weight:700;
+    color:var(--txt); border:1px solid var(--pur); background:var(--bg2); text-decoration:none;
+  }
+  .link-chips.big .link-chip{ padding:9px 16px; font-size:13px; }
+  .cur-tag{ font-size:9px; color:#fff; background:var(--mag); border-radius:4px; padding:1px 5px; margin-left:5px; vertical-align:2px; }
+  select, input[type="text"], input[type="password"], input[type="number"], input[type="time"], input[type="datetime-local"], textarea{
+    background:var(--bg2); color:var(--txt); border:1px solid var(--line);
+    border-radius:9px; padding:9px 10px; font-size:14px; width:100%;
+  }
+  select{ flex:1; }
+  .seg{ display:flex; gap:6px; margin-bottom:10px; }
+  .seg button{
+    flex:1; padding:8px 0; border-radius:9px; border:1px solid var(--line);
+    background:var(--bg2); color:var(--sub); font-size:13px; cursor:pointer;
+  }
+  .seg button.on{ background:var(--grad); color:#fff; border-color:transparent; font-weight:700; }
+  .act-grid{ display:flex; gap:8px; }
+  .act-grid label{ flex:1; font-size:11px; color:var(--sub); display:block; }
+  .act-grid input{ margin-top:4px; }
+  .sim-line{ font-size:13px; line-height:1.8; }
+  .sim-line b{ color:#f0abfc; }
+  .remain{ color:var(--sub); font-size:12px; }
+  .done{ color:var(--ok); font-weight:700; }
+  .hist-item{ padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; line-height:1.7; }
+  .hist-item:last-child{ border-bottom:none; }
+  .hist-item .hm{ color:var(--sub); font-size:11px; }
+  .hist-item .st-ok{ color:var(--ok); font-weight:700; }
+  .hist-item .st-ng{ color:var(--ng); }
+
+  /* PT表 */
+  .pt-note{ color:var(--sub); font-size:12px; line-height:1.7; margin-bottom:10px; }
+  .linkbtn{
+    display:block; text-align:center; text-decoration:none; color:#fff; font-weight:700;
+    background:var(--grad); border-radius:11px; padding:11px; font-size:14px; margin-bottom:14px;
+  }
+  table.pt{ width:100%; border-collapse:collapse; font-size:11.5px; }
+  table.pt th, table.pt td{ border:1px solid var(--line); padding:6px 5px; vertical-align:top; }
+  table.pt th{ background:var(--card2); color:var(--sub); font-size:11px; position:sticky; top:0; }
+  table.pt td.tier{ font-weight:700; text-align:center; white-space:nowrap; background:var(--bg2); }
+  table.pt td .r{ display:block; white-space:nowrap; }
+  .pt-formula{ color:var(--sub); font-size:12px; line-height:1.8; margin-top:12px; margin-bottom:28px; }
+
+  /* 設定 */
+  .stat-row{ display:flex; gap:8px; margin-bottom:12px; }
+  .btn{
+    display:block; width:100%; padding:12px; border-radius:11px; border:1px solid var(--line);
+    background:var(--card2); color:var(--txt); font-size:14px; font-weight:700; cursor:pointer; margin-bottom:10px;
+  }
+  .btn.primary{ background:var(--grad); border:none; color:#fff; }
+  .btn.danger{ color:var(--ng); }
+  label.btn{ text-align:center; box-sizing:border-box; cursor:pointer; }
+  /* ファイル選択は display:none にするとアプリ内WebViewで開かない事があるため、透明化だけにする */
+  .file-input-hidden{ position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
+  .ai-preview{ width:100%; border-radius:12px; border:1px solid var(--line); display:block; margin:10px 0; }
+  .crop-wrap{
+    position:relative; width:100%; max-width:300px; aspect-ratio:1/1; margin:8px auto;
+    overflow:hidden; border-radius:12px; border:2px solid var(--mag); background:#000;
+    touch-action:none; cursor:grab;
+  }
+  .crop-wrap img{ position:absolute; left:50%; top:50%; max-width:none; pointer-events:none; }
+  .crop-wrap::after{
+    content:''; position:absolute; inset:0; border-radius:50%;
+    box-shadow:0 0 0 999px rgba(0,0,0,.45); pointer-events:none;
+  }
+  .ai-result{
+    background:var(--bg2); border:1px solid var(--ok); border-radius:10px;
+    padding:10px 12px; font-size:13px; line-height:1.8; margin-top:10px;
+  }
+  textarea{ min-height:110px; font-size:11px; margin-bottom:10px; display:none; }
+  textarea.show{ display:block; }
+  #f-memo{ display:block; min-height:72px; font-size:14px; margin-bottom:0; }
+  .card-memo{
+    margin-top:10px; background:var(--bg2); border:1px solid var(--line); border-radius:10px;
+    padding:8px 10px; font-size:12px; color:var(--sub); line-height:1.6;
+    white-space:pre-wrap; word-break:break-word;
+  }
+  .detail-memo{
+    margin-top:12px; background:var(--bg2); border:1px solid var(--line); border-radius:10px;
+    padding:9px 11px; font-size:13px; color:var(--txt); line-height:1.7;
+    white-space:pre-wrap; word-break:break-word;
+  }
+  .detail-memo .memo-label{ display:block; font-size:11px; color:var(--sub); margin-bottom:3px; }
+  .fineprint{ color:var(--dim); font-size:11px; line-height:1.8; }
+  .panel-head{ display:flex; align-items:center; gap:8px; }
+  .panel-head h3{ margin:0; flex:1; }
+  .info-btn{
+    flex:0 0 auto; width:22px; height:22px; border-radius:50%;
+    border:1px solid var(--line); background:var(--bg2); color:var(--sub);
+    font-size:12px; font-style:italic; font-weight:700; cursor:pointer; line-height:1; padding:0;
+  }
+  .info-box{
+    color:var(--dim); font-size:11px; line-height:1.8;
+    background:var(--bg2); border:1px solid var(--line); border-radius:10px;
+    padding:9px 11px; margin-top:10px;
+  }
+  .btn.mini{ width:auto; padding:6px 14px; font-size:12px; margin:0; flex:0 0 auto; }
+
+  /* モーダル */
+  #modal-bg{
+    display:none; position:fixed; inset:0; z-index:40;
+    background:rgba(5,2,12,.72); align-items:flex-end; justify-content:center;
+  }
+  #modal-bg.show{ display:flex; }
+  #modal{
+    background:var(--bg2); width:100%; max-width:640px; max-height:88vh; overflow-y:auto;
+    border-radius:20px 20px 0 0; border:1px solid var(--line); padding:18px 16px 26px;
+  }
+  #modal h2{ font-size:16px; margin-bottom:14px; }
+  .field{ margin-bottom:12px; }
+  .field label{ display:block; font-size:12px; color:var(--sub); margin-bottom:5px; }
+  .field-row{ display:flex; gap:8px; }
+  .field-row .field{ flex:1; }
+  #toast{
+    display:none; position:fixed; left:50%; bottom:166px; transform:translateX(-50%);
+    z-index:50; background:#fff; color:#1a0d2e; font-size:13px; font-weight:700;
+    padding:10px 18px; border-radius:999px; box-shadow:0 4px 16px rgba(0,0,0,.4);
+  }
+</style>
+</head>
+<body>
+<div id="splash">
+  <div class="splash-visual">
+    <div class="splash-logo">推<span class="splash-note">♪</span></div>
+    <img class="splash-img" src="splash-girl.png" alt="" onerror="this.remove()">
+  </div>
+  <div class="splash-name">ColorSing推し管理</div>
+  <div class="splash-loading">読み込み中…</div>
+</div>
+<header>
+  <h1><span class="accent">ColorSing</span> 推し管理 <span class="ver" id="app-ver"></span></h1>
+  <div class="today" id="today-line"></div>
+</header>
+<main>
+  <!-- 配信者一覧 -->
+  <section id="view-streamers" class="view active">
+    <div class="sort-bar" id="sort-bar">
+      <label for="sort-select">並べ替え</label>
+      <select id="sort-select" onchange="setSort(this.value)">
+        <option value="default">登録順</option>
+        <option value="closeAsc">締め時間が早い順</option>
+        <option value="monthlyAsc">月間Ptが低い順</option>
+        <option value="monthlyDesc">月間Ptが高い順</option>
+        <option value="curJunAsc">現在旬Ptが低い順</option>
+        <option value="remainAsc">目標まで残りが少ない順（達成間近）</option>
+        <option value="remainDesc">目標まで残りが多い順</option>
+        <option value="unachieved">未達成を優先（月間Ptが低い順）</option>
+        <option value="nameAsc">名前順（読み方）</option>
+        <option value="prioAsc">優先度順（1が最優先）</option>
+        <option value="visitedOnly">🔍 今旬に訪問済みだけ表示</option>
+        <option value="unvisitedOnly">🔍 今旬に未訪問だけ表示</option>
+        <option value="hiddenOnly">🔍 非表示の人だけ表示</option>
+      </select>
+    </div>
+    <div class="panel" style="margin-top:12px">
+      <div class="panel-head">
+        <h3>📷 スクショ登録（AI）</h3>
+        <button class="info-btn" onclick="toggleInfo('reg-ai-info')" aria-label="説明を表示">i</button>
+        <button class="btn mini" id="reg-ai-open" onclick="toggleRegAi()">開く</button>
+      </div>
+      <div id="reg-ai-info" class="info-box" style="display:none">プロフィールモード：配信者のプロフィール画面のスクショから、名前・締め時間（「○時締め」）・画面内に文字で書かれたリンクURLを読み取って登録画面に入力します。複数枚まとめて選べて、1枚ずつ順に読み取って結果一覧から一人ずつ登録できます（1枚に1人が前提）。読み取り後にアイコンの範囲調整も出ます。<br>フォロー一覧モード：フォロー一覧画面のスクショから全員分の名前と締め時間を読み取って、まとめてカード登録できます（アイコン画像は付きません）。<br>リンク集ページ（lit.link等）のリンクは、登録画面のリンク欄にある「読み取る」からURLで取り込めます。設定タブでAIのAPIキー（Gemini／OpenAI）の保存が必要です。</div>
+      <div id="reg-ai-body" style="display:none;margin-top:10px">
+        <div class="seg" style="margin-top:4px">
+          <button class="btn" id="reg-mode-profile" onclick="setRegMode('profile')">プロフィール（1枚に1人）</button>
+          <button class="btn" id="reg-mode-list" onclick="setRegMode('list')">フォロー一覧（1枚に複数人）</button>
+        </div>
+        <label class="btn" for="reg-img" id="reg-img-label">プロフィールのスクショを選ぶ（複数枚まとめてOK）</label>
+        <input type="file" id="reg-img" accept="image/*" multiple class="file-input-hidden">
+        <div id="reg-queue" style="display:none;margin-top:10px"></div>
+        <div id="reg-ai-after" style="display:none">
+          <button class="btn primary" id="reg-ai-read" onclick="readRegWithAi()">AIで一括読み取り（名前・締め時間・リンク）</button>
+          <button class="btn" id="reg-ai-cancel" style="display:none" onclick="cancelAiReading()">読み取りを中止する</button>
+        </div>
+        <p class="sim-line" id="reg-ai-status"></p>
+        <div id="reg-results"></div>
+      </div>
+    </div>
+    <div id="streamer-list"></div>
+  </section>
+
+  <!-- 詳細 -->
+  <section id="view-detail" class="view">
+    <button class="backbtn" onclick="goList()">← 配信者一覧へ戻る</button>
+    <div id="detail-body"></div>
+  </section>
+
+  <!-- PT表 -->
+  <section id="view-pt" class="view">
+    <a class="linkbtn" href="https://faq.colorsing.com/efb4a0cd02e54c06836e5761e2f43542" target="_blank" rel="noopener">公式「推しPt獲得表」を開く ↗</a>
+    <p class="pt-note">P1＝視聴・日数重視 ／ P2＝バランス ／ P3＝コイン特化。各パターン内の項目は全部達成で、その推しPtを獲得できます。🪙コイン数 ・ 👀視聴時間 ・ 💙5スーパーいいね日数</p>
+    <div style="overflow-x:auto;">
+      <table class="pt">
+        <thead><tr><th>推しPt</th><th>パターン1</th><th>パターン2</th><th>パターン3</th></tr></thead>
+        <tbody id="pt-body"></tbody>
+      </table>
+    </div>
+    <p class="pt-formula">※ 50K以上（nK／n≧50）：P1＝🪙200万＋(n-49)×50万 ・ 👀14時間 ・ 💙6日 ／ P2＝🪙210万＋(n-49)×50万 ・ 👀6時間 ・ 💙4日 ／ P3＝🪙220万＋(n-49)×50万。1K増えるごとに50万コイン追加、上限なし。</p>
+  </section>
+
+  <!-- 設定 -->
+  <section id="view-settings" class="view">
+    <div class="panel">
+      <h3>保存データ情報</h3>
+      <div class="stat-row">
+        <div class="num"><div class="v" id="st-count">0</div><div class="l">配信者数</div></div>
+        <div class="num"><div class="v" id="st-hist">0</div><div class="l">履歴数</div></div>
+        <div class="num"><div class="v" id="st-size">0KB</div><div class="l">データサイズ</div></div>
+      </div>
+      <p class="fineprint">データはクラウドではなく、この端末の中（ローカルストレージ）にだけ保存されます。</p>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>バックアップ</h3>
+        <button class="info-btn" onclick="toggleInfo('settings-backup-info')" aria-label="説明を表示">i</button>
+      </div>
+      <div id="settings-backup-info" class="info-box" style="display:none">アプリ内表示（APK）ではダウンロードが動かない場合があります。その時は「共有して保存」か「コピー」を使ってください（コピーした内容はメモ帳やファイルアプリに貼り付けて保存できます）。<br>以前のBolt版アプリのバックアップ（colorsing_backup_○○.json）も、そのままここから復元できます。形式を自動で見分けて、今の項目に変換して取り込みます（Bolt版のPt表記「0.1K」などは数値に変換、締め時間・メモ・アイコン・履歴も引き継ぎます）。</div>
+      <button class="btn primary" onclick="exportFile()">JSONファイルをダウンロードする</button>
+      <button class="btn" onclick="shareBackup()">共有して保存する（共有シート）</button>
+      <button class="btn" onclick="toggleExportText()">テキストで表示する</button>
+      <textarea id="export-text" readonly></textarea>
+      <button class="btn" id="copy-export-btn" style="display:none" onclick="copyExportText()">表示したテキストをコピーする</button>
+      <label class="btn" for="import-file">JSONファイルから復元する</label>
+      <input type="file" id="import-file" accept=".json,application/json" class="file-input-hidden">
+      <button class="btn" onclick="toggleImportText()">テキスト貼り付けで復元する（確実）</button>
+      <textarea id="import-text" placeholder="バックアップのJSONをここに貼り付け"></textarea>
+      <button class="btn" id="import-text-btn" style="display:none" onclick="importFromText()">貼り付けた内容で復元する</button>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>スクリーンショット読み取り（AI）設定</h3>
+        <button class="info-btn" onclick="toggleInfo('settings-ai-info')" aria-label="説明を表示">i</button>
+      </div>
+      <div id="settings-ai-info" class="info-box" style="display:none">APIキーは端末内だけに保存し、JSONバックアップには含めません（他人に見せないでください）。読み取りではスクリーンショット画像が、選んだAI（Google Gemini／OpenAI）に送信されます。OpenAIはAPIの標準条件でデータが学習に使われません。Geminiで学習に使われないのは課金設定済みのプロジェクトのキーです。使えるAIモデルはキーから自動で探すので、モデル名の指定は不要です。使い方：配信者の詳細画面で「スクショ自動更新（AI）」を開いてください。プレビュー／アプリ内表示でファイル選択画面が出ない場合は、Chromeブラウザで開いてください。</div>
+      <div class="field"><label>使うAI</label><select id="set-aiprovider" onchange="onAiProviderChange()"><option value="gemini">Google Gemini</option><option value="openai">OpenAI（ChatGPTの会社）</option></select></div>
+      <div class="field"><label>自分のColorSing表示名（スクショの中で探す名前）</label><input type="text" id="set-myname" placeholder="例：どむぞう"></div>
+      <div class="field" id="ai-key-gemini-wrap"><label>Gemini APIキー</label><input type="password" id="set-apikey" placeholder="APIキー（端末内だけに保存）"></div>
+      <div class="field" id="ai-key-openai-wrap" style="display:none"><label>OpenAI APIキー</label><input type="password" id="set-oaikey" placeholder="sk-…（端末内だけに保存）"></div>
+      <button class="btn primary" onclick="saveAiSettings()">AI設定を保存する</button>
+      <button class="btn" onclick="testAiConnection()">AI接続テスト（使えるモデルを確認）</button>
+      <p class="fineprint" id="ai-key-status"></p>
+      <a class="btn" id="ai-link-gemini" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="text-decoration:none;text-align:center">Google AI StudioでAPIキーを取得する ↗</a>
+      <a class="btn" id="ai-link-openai" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;display:none">OpenAIでAPIキーを取得する ↗</a>
+    </div>
+    <div class="panel">
+      <h3>危険な操作</h3>
+      <button class="btn danger" onclick="wipeAll()">全データを削除する</button>
+    </div>
+  </section>
+</main>
+
+<button id="fab" onclick="openForm(null)">＋</button>
+
+<nav>
+  <div id="month-stats"></div>
+  <button id="tab-streamers" class="on" onclick="goTab('streamers')"><span class="ic">🎤</span>配信者</button>
+  <button id="tab-pt" onclick="goTab('pt')"><span class="ic">📊</span>PT表</button>
+  <button id="tab-settings" onclick="goTab('settings')"><span class="ic">⚙️</span>設定</button>
+</nav>
+
+<div id="modal-bg">
+  <div id="modal">
+    <h2 id="form-title">配信者を追加</h2>
+    <div class="field"><label>名前</label><input type="text" id="f-name" placeholder="配信者の名前"></div>
+    <div class="field"><label>読み方（ひらがな・名前順の基準になります）</label><input type="text" id="f-yomi" placeholder="例：なつき（ひらがなで入力）"></div>
+    <div class="field"><label>アイコン画像</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar" id="f-img-preview">🎤</div>
+        <label class="btn" for="f-img" style="flex:1;margin:0">画像を選ぶ</label>
+        <button type="button" class="btn" style="flex:0 0 auto;margin:0;width:auto;padding:12px 14px" onclick="clearFormImg()">削除</button>
+      </div>
+      <input type="file" id="f-img" accept="image/*" class="file-input-hidden">
+      <p class="fineprint">プレビューやアプリ内表示では、表示側がファイル選択に対応しておらず「画像を選ぶ」で画面が出ない場合があります（HTML側では出せません）。その時はこのファイルをChromeブラウザで開いてください。Chromeでは選択画面が正常に出ます。</p>
+      <button type="button" class="btn" id="f-crop-open" style="margin-top:8px;display:none" onclick="reopenCrop()">画像の範囲を調整する（ズーム・位置）</button>
+      <div id="f-crop-area" style="display:none;margin-top:10px">
+        <label style="font-size:13px;color:var(--sub)">範囲調整：画像をドラッグで動かし、下のスライダーでズーム。丸の中がアイコンになります</label>
+        <div class="crop-wrap" id="f-crop-wrap"><img id="f-crop-img" alt=""></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px">小</span>
+          <input type="range" id="f-crop-zoom" min="100" max="350" value="100" style="flex:1">
+          <span style="font-size:12px">大</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button type="button" class="btn primary" style="flex:1;margin:0" onclick="applyCrop()">この範囲で決定</button>
+          <button type="button" class="btn" style="flex:1;margin:0" onclick="cancelCrop()">キャンセル</button>
+        </div>
+      </div>
+    </div>
+    <div class="field"><label>画像URL（ファイル選択が使えない時）</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="f-img-url" placeholder="https://…（画像のURL）" style="flex:1">
+        <button type="button" class="btn" style="flex:0 0 auto;margin:0;width:auto;padding:9px 14px" onclick="loadFormImgFromUrl()">読む</button>
+      </div>
+    </div>
+    <div class="field"><label>アイコン（絵文字・画像がない時）</label><input type="text" id="f-icon" placeholder="🎤"></div>
+    <div class="field-row">
+      <div class="field"><label>締め時間（1時間単位）</label><select id="f-close"></select></div>
+      <div class="field"><label>月間目標（K級）</label><select id="f-target"></select></div>
+    </div>
+    <div class="field"><label>優先度（1＝できるだけ行きたい・仲良い ／ 10＝時間があれば行く）</label><select id="f-plevel"></select></div>
+    <div class="field"><label>メモ</label><textarea id="f-memo" placeholder="メモ（自由に書けます）"></textarea></div>
+    <div class="field"><label>リンク（Xやlit.linkなど・最大6件）</label>
+      <div id="link-rows"></div>
+      <p class="fineprint">URLは https:// が無くても自動で付けます。カードと詳細にボタンとして出て、押すとすぐ開きます。</p>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <input type="text" id="f-lit-url" placeholder="リンク集ページのURL（lit.linkなど）" style="flex:1">
+        <button type="button" class="btn" style="flex:0 0 auto;width:auto;margin:0;padding:9px 14px" onclick="importLinksToForm()">読み取る</button>
+      </div>
+      <p class="sim-line" id="f-lit-status"></p>
+      <p class="fineprint">lit.linkのようなリンク集ページのURLを入れると、そのページに並んでいるリンク先を一覧で取り込めます（ページ側の仕様で読めない場合もあります）。</p>
+    </div>
+    <button class="btn primary" onclick="saveForm()">保存する</button>
+    <button class="btn" onclick="closeForm()">キャンセル</button>
+    <button class="btn danger" id="f-delete" style="display:none" onclick="deleteStreamer()">この配信者を削除する</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script>
+/* ===== 推しPt獲得表（公式FAQ準拠） c=コイン, h=視聴時間, d=5スーパーいいね日数 ===== */
+const PT = {
+  10:[ [1,0.25,0],[10,0.1,0],[30] ],
+  50:[ [5,0.5,0],[20,0.2,0],[60] ],
+  100:[ [10,0.75,0],[40,0.3,0],[100] ],
+  300:[ [25,1,0],[60,0.4,0],[200] ],
+  500:[ [40,1.25,0],[100,0.5,0],[400] ],
+  700:[ [60,1.5,0],[200,0.75,0],[600] ],
+  1000:[ [80,1.75,4],[300,1,2],[800] ],
+  2000:[ [100,2,4],[500,1.25,2],[1000] ],
+  3000:[ [250,2.25,4],[800,1.5,2],[1200] ],
+  4000:[ [500,2.5,4],[1000,1.75,2],[1500] ],
+  5000:[ [750,2.75,4],[1125,2,2],[1875] ],
+  6000:[ [1100,3,4],[1650,2.5,2],[2750] ],
+  7000:[ [1500,3.25,4],[2250,2.5,2],[3750] ],
+  8000:[ [2000,3.5,4],[3000,3,2],[5000] ],
+  9000:[ [2500,3.75,4],[3750,3,2],[6250] ],
+  10000:[ [3000,4,5],[4500,3.5,3],[7500] ],
+  11000:[ [4000,4.25,5],[6000,3.5,3],[10000] ],
+  12000:[ [5000,4.5,5],[7500,4,3],[12500] ],
+  13000:[ [6000,4.75,5],[9000,4,3],[15000] ],
+  14000:[ [7000,5,5],[10500,4.5,3],[17500] ],
+  15000:[ [8000,5.25,5],[12000,4.5,3],[20000] ],
+  16000:[ [9000,5.5,5],[13500,4.75,3],[22500] ],
+  17000:[ [10500,5.75,5],[15750,4.75,3],[26250] ],
+  18000:[ [12000,6,5],[18000,5,3],[30000] ],
+  19000:[ [14000,6.25,5],[21000,5,3],[35000] ],
+  20000:[ [16000,6.5,6],[24000,5.25,4],[40000] ],
+  21000:[ [17000,6.75,6],[25500,5.25,4],[42500] ],
+  22000:[ [18500,7,6],[27750,5.5,4],[46250] ],
+  23000:[ [20000,7.25,6],[30000,5.5,4],[50000] ],
+  24000:[ [22000,7.5,6],[33000,5.75,4],[55000] ],
+  25000:[ [24000,7.75,6],[36000,5.75,4],[60000] ],
+  26000:[ [27000,8,6],[40500,6,4],[67500] ],
+  27000:[ [30000,8.25,6],[45000,6,4],[75000] ],
+  28000:[ [34000,8.5,6],[51000,6,4],[85000] ],
+  29000:[ [39000,8.75,6],[58500,6,4],[97500] ],
+  30000:[ [44000,9,6],[66000,6,4],[110000] ],
+  31000:[ [50000,9.25,6],[75000,6,4],[125000] ],
+  32000:[ [58000,9.5,6],[87000,6,4],[145000] ],
+  33000:[ [66000,9.75,6],[99000,6,4],[165000] ],
+  34000:[ [72000,10,6],[108000,6,4],[180000] ],
+  35000:[ [80000,10.25,6],[120000,6,4],[200000] ],
+  36000:[ [90000,10.5,6],[135000,6,4],[225000] ],
+  37000:[ [100000,10.75,6],[150000,6,4],[250000] ],
+  38000:[ [110000,11,6],[165000,6,4],[275000] ],
+  39000:[ [120000,11.25,6],[180000,6,4],[300000] ],
+  40000:[ [150000,11.5,6],[250000,6,4],[350000] ],
+  41000:[ [200000,11.75,6],[300000,6,4],[400000] ],
+  42000:[ [300000,12,6],[400000,6,4],[500000] ],
+  43000:[ [420000,12.25,6],[520000,6,4],[620000] ],
+  44000:[ [550000,12.5,6],[650000,6,4],[750000] ],
+  45000:[ [700000,12.75,6],[800000,6,4],[900000] ],
+  46000:[ [900000,13,6],[1000000,6,4],[1100000] ],
+  47000:[ [1200000,13.25,6],[1300000,6,4],[1400000] ],
+  48000:[ [1600000,13.5,6],[1700000,6,4],[1800000] ],
+  49000:[ [2000000,13.75,6],[2100000,6,4],[2200000] ]
+};
+function ptCond(v){
+  if (PT[v]) return PT[v];
+  if (v >= 50000){ const n = v/1000;
+    return [ [2000000+(n-49)*500000, 14, 6], [2100000+(n-49)*500000, 6, 4], [2200000+(n-49)*500000] ];
+  }
+  return null;
+}
+/* 旬Ptのプルダウン候補 */
+const TIERS = [0,10,50,100,300,500,700,1000,2000,3000,4000,5000,6000,7000,8000,9000,
+  10000,11000,12000,13000,14000,15000,16000,17000,18000,19000,20000,21000,22000,23000,
+  24000,25000,26000,27000,28000,29000,30000,31000,32000,33000,34000,35000,36000,37000,
+  38000,39000,40000,41000,42000,43000,44000,45000,46000,47000,48000,49000,50000,
+  60000,70000,80000,90000,100000];
+/* 歌推しK級（月間マイルストーン） */
+const MILESTONES = [1000,5000,10000,20000,30000,40000,50000,60000,70000,80000,90000,100000];
+const JUNS = [ {k:'jou', label:'上旬', days:'1〜10日'}, {k:'chuu', label:'中旬', days:'11〜20日'}, {k:'ge', label:'下旬', days:'21〜末日'} ];
+
+/* ===== 表示フォーマット ===== */
+/* Pt表記：10と50だけそのまま、それ以外はK表記（100→0.1K、300→0.3K、500→0.5K、700→0.7K、1000→1K） */
+function fmtPt(v){
+  if (!v) return '0';
+  if (v === 10 || v === 50) return String(v);
+  return (v/1000).toFixed(3).replace(/\.?0+$/, '')+'K';
+}
+function fmtPtTotal(v){ /* 月間合計もfmtPtと同じ：24.0Kのような不要な小数は付けず 24K とする（1.5Kのような端数は残す） */
+  return fmtPt(v);
+}
+function fmtCoin(v){
+  if (v >= 10000 && v % 10000 === 0) return (v/10000)+'万';
+  return v.toLocaleString('ja-JP');
+}
+function fmtH(h){ return (Math.round(h*100)/100).toString(); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ===== 日付・旬（端末時刻 × 配信者ごとの締め時間） ===== */
+function nowDate(){ return new Date(); }
+function monthKey(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+function parseCloseHour(closeTime){
+  const h = parseInt(String(closeTime || '24:00').split(':')[0], 10);
+  return isNaN(h) ? 24 : Math.min(24, Math.max(0, h));
+}
+/* その月の day 日の締め時刻。24時は翌日0時として扱う */
+function closeBoundary(year, monthIdx, day, hour){
+  if (hour >= 24) return new Date(year, monthIdx, day + 1, 0, 0, 0, 0);
+  return new Date(year, monthIdx, day, hour, 0, 0, 0);
+}
+function lastDayOf(year, monthIdx){ return new Date(year, monthIdx + 1, 0).getDate(); }
+/* 締め時刻を過ぎたら月も切り替わる：例）締め13時なら月末日の13時で翌月分が始まる */
+function effectiveMonthKey(closeTime, d){
+  const h = parseCloseHour(closeTime);
+  const y = d.getFullYear(), m = d.getMonth();
+  if (d >= closeBoundary(y, m, lastDayOf(y, m), h)) return monthKey(new Date(y, m + 1, 1));
+  return monthKey(d);
+}
+function effectiveYearMonth(closeTime, d){
+  const parts = effectiveMonthKey(closeTime, d).split('-');
+  return { y: parseInt(parts[0], 10), m: parseInt(parts[1], 10) - 1 };
+}
+/* 例）締め13時：10日12:59まで上旬、10日13:00から中旬。20日13:00から下旬、月末日13:00から翌月の上旬 */
+function currentJunKeyFor(closeTime, d){
+  const h = parseCloseHour(closeTime);
+  const em = effectiveYearMonth(closeTime, d);
+  if (d < closeBoundary(em.y, em.m, 10, h)) return 'jou';
+  if (d < closeBoundary(em.y, em.m, 20, h)) return 'chuu';
+  return 'ge';
+}
+function currentJunKey(d){ return currentJunKeyFor('24:00', d); }
+/* 指定した旬の開始〜終了（終了時刻ちょうどで次の旬） */
+function junRange(closeTime, d, junKey){
+  const h = parseCloseHour(closeTime);
+  const em = effectiveYearMonth(closeTime, d);
+  if (junKey === 'jou'){
+    return { start: closeBoundary(em.y, em.m - 1, lastDayOf(em.y, em.m - 1), h), end: closeBoundary(em.y, em.m, 10, h) };
+  }
+  if (junKey === 'chuu'){
+    return { start: closeBoundary(em.y, em.m, 10, h), end: closeBoundary(em.y, em.m, 20, h) };
+  }
+  return { start: closeBoundary(em.y, em.m, 20, h), end: closeBoundary(em.y, em.m, lastDayOf(em.y, em.m), h) };
+}
+function fmtBoundary(dt){
+  return (dt.getMonth()+1)+'/'+dt.getDate()+' '+String(dt.getHours()).padStart(2,'0')+':00';
+}
+function junLabel(k){ return JUNS.find(j=>j.k===k).label; }
+
+/* ===== 状態管理 ===== */
+const APP_VERSION = '1.15';
+const LS_KEY = 'colorsing_oshi_v1';
+const AI_LS_KEY = 'colorsing_oshi_ai_key_v1';
+let state = { streamers: [], sortKey: 'default', myName: '' };
+function getAiKey(){ try{ return localStorage.getItem(AI_LS_KEY) || ''; }catch(e){ return ''; } }
+/* 使うAI（Gemini／OpenAI）の切替。キーは会社ごとに端末内だけに保存し、バックアップには含めない */
+const OAI_LS_KEY = 'colorsing_oshi_oai_key_v1';
+const AI_PROVIDER_KEY = 'colorsing_oshi_ai_provider_v1';
+function getAiProvider(){ try{ return localStorage.getItem(AI_PROVIDER_KEY) === 'openai' ? 'openai' : 'gemini'; }catch(e){ return 'gemini'; } }
+function getOpenAiKey(){ try{ return localStorage.getItem(OAI_LS_KEY) || ''; }catch(e){ return ''; } }
+function getActiveAiKey(){ return getAiProvider() === 'openai' ? getOpenAiKey() : getAiKey(); }
+function aiSvcName(){ return getAiProvider() === 'openai' ? 'OpenAI' : 'Google（Gemini）'; }
+function aiKeyName(){ return getAiProvider() === 'openai' ? 'OpenAI APIキー' : 'Gemini APIキー'; }
+function fileToScaledDataUrl(file, max, cb, errCb){
+  const r = new FileReader();
+  r.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      cb(cv.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { if (errCb) errCb(); };
+    img.src = String(r.result || '');
+  };
+  r.onerror = () => { if (errCb) errCb(); };
+  r.readAsDataURL(file);
+}
+const SORT_KEYS = ['default','closeAsc','monthlyAsc','monthlyDesc','curJunAsc','remainAsc','remainDesc','unachieved','nameAsc','prioAsc','visitedOnly','unvisitedOnly','hiddenOnly'];
+function sortKey(){ return SORT_KEYS.includes(state.sortKey) ? state.sortKey : 'default'; }
+function setSort(v){ state.sortKey = SORT_KEYS.includes(v) ? v : 'default'; save(); renderList(); }
+function blankMonth(mk){
+  return { month: mk, pt:{ jou:0, chuu:0, ge:0 },
+    act:{ jou:{c:0,h:0,d:0}, chuu:{c:0,h:0,d:0}, ge:{c:0,h:0,d:0} },
+    visits:{ jou:0, chuu:0, ge:0 }, ptAt:{ jou:0, chuu:0, ge:0 } };
+}
+/* 旧データにも訪問記録の入れ物を用意する */
+function ensureVisitFields(s){
+  if (!s.cur) return;
+  if (!s.cur.visits) s.cur.visits = { jou:0, chuu:0, ge:0 };
+  if (!s.cur.ptAt) s.cur.ptAt = { jou:0, chuu:0, ge:0 };
+}
+/* その旬の最終訪問＝来訪ボタンの時刻とPt更新時刻のうち新しい方 */
+function lastVisitTs(s, jk){
+  ensureVisitFields(s);
+  return Math.max((s.cur.visits && s.cur.visits[jk]) || 0, (s.cur.ptAt && s.cur.ptAt[jk]) || 0);
+}
+function visitedThisJun(s, d){
+  const jk = currentJunKeyFor(s.closeTime, d || nowDate());
+  return lastVisitTs(s, jk) > 0;
+}
+function fmtDateTime(ts){
+  if (!ts) return '―';
+  const d = new Date(ts);
+  return (d.getMonth()+1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw){ const p = JSON.parse(raw); if (p && Array.isArray(p.streamers)) state = p; }
+  }catch(e){}
+  rollover();
+}
+function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ toast('保存に失敗しました'); } }
+function rollover(){
+  const now = nowDate();
+  let changed = false;
+  state.streamers.forEach(s => {
+    const mk = effectiveMonthKey(s.closeTime, now);
+    if (!s.cur) { s.cur = blankMonth(mk); changed = true; }
+    if (!s.cur.visits || !s.cur.ptAt){ ensureVisitFields(s); changed = true; }
+    if (s.cur.month !== mk){
+      const c = s.cur;
+      const total = c.pt.jou + c.pt.chuu + c.pt.ge;
+      const hasVisit = JUNS.some(j => lastVisitTs(s, j.k) > 0);
+      const hasData = total > 0 || hasVisit || JUNS.some(j => { const a = c.act[j.k]; return a && (a.c||a.h||a.d); });
+      if (hasData){
+        s.history = s.history || [];
+        s.history.unshift({ month: c.month, pt:{...c.pt}, total: total, achieved: total >= (s.target||1000),
+          visits:{ jou: lastVisitTs(s,'jou'), chuu: lastVisitTs(s,'chuu'), ge: lastVisitTs(s,'ge') } });
+      }
+      s.cur = blankMonth(mk);
+      changed = true;
+    }
+    if (!Array.isArray(s.history)) { s.history = []; changed = true; }
+  });
+  if (changed) save();
+}
+function monthTotal(s){ return s.cur.pt.jou + s.cur.pt.chuu + s.cur.pt.ge; }
+const JUN_ORDER = ['jou','chuu','ge'];
+const UTAOSHI_PT = 1000;
+function computeMonthStats(d){
+  let monthCount = 0, junCount = 0;
+  state.streamers.forEach(s => {
+    if (s.hidden || !s.cur || !s.cur.pt) return;
+    if (monthTotal(s) < UTAOSHI_PT) return;
+    monthCount++;
+    const jk = currentJunKeyFor(s.closeTime, d);
+    let before = 0;
+    for (const k of JUN_ORDER){ if (k === jk) break; before += s.cur.pt[k] || 0; }
+    if (before < UTAOSHI_PT) junCount++;
+  });
+  return { monthCount: monthCount, junCount: junCount };
+}
+function updateMonthStats(){
+  const el = document.getElementById('month-stats');
+  if (!el) return;
+  const st = computeMonthStats(nowDate());
+  el.innerHTML = '今月の歌推し取得人数：' + st.monthCount + '人<br>今旬の歌推し獲得人数：' + st.junCount + '人';
+}
+function achievedTier(total){ let t = 0; MILESTONES.forEach(m => { if (total >= m) t = m; }); return t; }
+function isAchieved(s){ return monthTotal(s) >= (s.target || 1000); }
+function findStreamer(id){ return state.streamers.find(s => s.id === id); }
+function uid(){ return 's' + Date.now().toString(36) + Math.floor(Math.random()*9999); }
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(()=>{ t.style.display='none'; }, 2200);
+}
+
+/* ===== 画面遷移 ===== */
+let currentTab = 'streamers';
+let detailId = null;
+let simJun = null, simPattern = 0, simTarget = null;
+function show(view){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-'+view).classList.add('active');
+  document.getElementById('fab').style.display = (view === 'streamers') ? 'block' : 'none';
+  window.scrollTo(0,0);
+}
+function goTab(tab){
+  currentTab = tab; detailId = null;
+  ['streamers','pt','settings'].forEach(t => document.getElementById('tab-'+t).classList.toggle('on', t===tab));
+  if (tab === 'settings') renderSettings();
+  show(tab);
+}
+function goList(){ detailId = null; goTab('streamers'); renderList(); }
+
+/* ===== 配信者一覧 ===== */
+/* 登録順（元の並び）は壊さず、表示用にコピーを並べ替える。同点は登録順で安定させる */
+function sortedStreamers(){
+  const d = nowDate();
+  const key = sortKey();
+  const items = state.streamers.map((s, i) => ({ s: s, i: i }));
+  if (key === 'default') return items.map(x => x.s);
+  const remain = s => Math.max(0, (s.target || 1000) - monthTotal(s));
+  const curPt = s => s.cur.pt[currentJunKeyFor(s.closeTime, d)] || 0;
+  const by = {
+    closeAsc:    (a, b) => (parseCloseHour(a.closeTime) - parseCloseHour(b.closeTime)) || (monthTotal(a) - monthTotal(b)),
+    monthlyAsc:  (a, b) => (monthTotal(a) - monthTotal(b)) || (parseCloseHour(a.closeTime) - parseCloseHour(b.closeTime)),
+    monthlyDesc: (a, b) => (monthTotal(b) - monthTotal(a)) || (parseCloseHour(a.closeTime) - parseCloseHour(b.closeTime)),
+    curJunAsc:   (a, b) => (curPt(a) - curPt(b)) || (monthTotal(a) - monthTotal(b)),
+    /* 達成済みは残り0でも最後尾に回し、未達成の中で間近な人を先頭にする */
+    remainAsc:   (a, b) => ((isAchieved(a) ? 1 : 0) - (isAchieved(b) ? 1 : 0)) || (remain(a) - remain(b)) || (monthTotal(b) - monthTotal(a)),
+    remainDesc:  (a, b) => ((isAchieved(a) ? 1 : 0) - (isAchieved(b) ? 1 : 0)) || (remain(b) - remain(a)),
+    unachieved:  (a, b) => ((isAchieved(a) ? 1 : 0) - (isAchieved(b) ? 1 : 0)) || (monthTotal(a) - monthTotal(b)),
+    nameAsc:     (a, b) => nameSortKey(a).localeCompare(nameSortKey(b), 'ja'),
+    prioAsc:     (a, b) => (prioLevel(a) - prioLevel(b)) || nameSortKey(a).localeCompare(nameSortKey(b), 'ja')
+  };
+  const cmp = by[key];
+  if (cmp) items.sort((x, y) => cmp(x.s, y.s) || (x.i - y.i));
+  return items.map(x => x.s);
+}
+function renderList(){
+  const d = nowDate();
+  document.getElementById('app-ver').textContent = 'v' + APP_VERSION;
+  updateMonthStats();
+  document.getElementById('today-line').textContent =
+    d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+' ・ 端末時刻基準 ・ '+state.streamers.length+'人登録中';
+  const box = document.getElementById('streamer-list');
+  const sel = document.getElementById('sort-select');
+  if (sel) sel.value = sortKey();
+  const bar = document.getElementById('sort-bar');
+  if (bar) bar.style.display = state.streamers.length ? 'flex' : 'none';
+  if (!state.streamers.length){
+    box.innerHTML = '<div class="empty">配信者がいません<br>下の＋ボタンから追加してください</div>';
+    return;
+  }
+  const all = sortedStreamers();
+  const sk = sortKey();
+  let list;
+  if (sk === 'hiddenOnly'){
+    list = all.filter(s => s.hidden && effectivePriority(s, d)).concat(all.filter(s => s.hidden && !effectivePriority(s, d)));
+  } else {
+    const prio = all.filter(s => !s.hidden && effectivePriority(s, d));
+    let rest = all.filter(s => !s.hidden && !effectivePriority(s, d));
+    if (sk === 'visitedOnly') rest = rest.filter(s => visitedThisJun(s, d));
+    if (sk === 'unvisitedOnly') rest = rest.filter(s => !visitedThisJun(s, d));
+    list = prio.concat(rest);
+  }
+  if (!list.length){
+    box.innerHTML = '<div class="empty">この条件に合う配信者がいません</div>';
+    return;
+  }
+  box.innerHTML = list.map(s => {
+    const jk = currentJunKeyFor(s.closeTime, d);
+    const total = monthTotal(s), cur = s.cur.pt[jk], ok = isAchieved(s);
+    const lv = lastVisitTs(s, jk);
+    const ep = effectivePriority(s, d);
+    const ups = upcomingEvents(s, d);
+    const nev = ups[0] || null;
+    return '<div class="card'+(s.hidden?' is-hidden':'')+(ep?' is-priority':'')+'" onclick="openDetail(\''+s.id+'\')">'
+      + '<div class="card-top">'+avatarHtml(s)
+      + '<div class="card-main"><div class="card-name">'+(ep ? '⭐ ' : '')+esc(s.name)+'</div>'
+      + '<div class="card-meta">現在：'+junLabel(jk)+' ・ 締め '+esc(s.closeTime||'24:00')+' ・ 目標 月間'+fmtPt(s.target||1000)+'</div></div></div>'
+      + '<div class="card-nums">'
+      + '<div class="num"><div class="v">'+fmtPtTotal(total)+'</div><div class="l">月間Pt</div></div>'
+      + '<div class="num" onclick="event.stopPropagation()"><select class="card-pt-select" aria-label="現在旬Ptを変更" onclick="event.stopPropagation()" onchange="setCardPt(event,\''+s.id+'\',\''+jk+'\',this.value)">'+tierOptions(cur)+'</select><div class="l">現在旬Pt</div></div>'
+      + '<div class="num"><div class="v">'+(achievedTier(total) ? fmtPt(achievedTier(total))+'級' : '―')+'</div><div class="l">歌推し</div></div>'
+      + '</div>'
+      + '<div class="card-visit '+(lv ? 'done' : 'yet')+'">'+(lv ? '✅ 今旬は訪問済み（最終 '+fmtDateTime(lv)+'）<button class="visit-undo" onclick="clearVisit(event,\''+s.id+'\',\''+jk+'\')">取り消す</button>' : '⬜ 今旬は未訪問')+'</div>'
+      + (nev ? '<div class="card-event">🎪 '+esc(nev.name)+' ・ '+fmtEvWhen(nev)+(eventPhase(nev, d) === 'live' ? '（開催中）' : '')+(ups.length > 1 ? ' ・ 他'+(ups.length - 1)+'件' : '')+'</div>' : '')
+      + linkChipsHtml(s, false)
+      + (s.memo ? '<div class="card-memo">📝 '+esc(s.memo)+'</div>' : '')
+      + '<div class="card-foot"><span class="badge '+(ok?'ok':'ng')+'">'+(ok?'達成':'未達成')+'</span>'
+      + '<label class="prio-wrap">優先度 <select class="prio-select" aria-label="優先度を変更" onclick="event.stopPropagation()" onchange="setCardPLevel(event,\''+s.id+'\',this.value)">'+prioOptions(prioLevel(s))+'</select></label>'
+      + '<button class="hide-btn'+(s.priority?' on':'')+'" onclick="togglePriority(event,\''+s.id+'\')">'+(s.priority ? '⭐ 優先' : '☆ 優先')+'</button>'
+      + '<button class="hide-btn" style="margin-left:0" onclick="toggleHidden(event,\''+s.id+'\')">'+(s.hidden ? '👁 表示に戻す' : '🙈 非表示')+'</button></div>'
+      + '</div>';
+  }).join('');
+}
+
+function toggleHidden(ev, id){
+  if (ev) ev.stopPropagation();
+  const s = findStreamer(id); if (!s) return;
+  s.hidden = !s.hidden;
+  save();
+  renderList();
+  toast(s.hidden ? '非表示にしました（フィルター「非表示の人だけ表示」で見られます）' : '表示に戻しました');
+}
+/* 優先度（1＝できるだけ行きたい 〜 10＝時間があれば。未設定は初期値6） */
+function prioLevel(s){
+  const n = parseInt(s && s.pLevel, 10);
+  return (n >= 1 && n <= 10) ? n : 6;
+}
+function prioOptions(sel){
+  let out = '';
+  for (let n = 1; n <= 10; n++) out += '<option value="' + n + '"' + (n === sel ? ' selected' : '') + '>' + n + '</option>';
+  return out;
+}
+function setCardPLevel(ev, id, v){
+  if (ev) ev.stopPropagation();
+  const s = findStreamer(id); if (!s) return;
+  const n = parseInt(v, 10);
+  s.pLevel = (n >= 1 && n <= 10) ? n : 6;
+  save();
+  renderList();
+  toast(s.name + ' の優先度を ' + s.pLevel + ' にしました');
+}
+/* 読み方をひらがなにそろえる（カタカナ→ひらがな変換、ひらがなと「ー」以外は除く） */
+function toHiragana(t){
+  const z = String(t || '').normalize('NFKC');
+  let out = '';
+  for (const ch of z){
+    const c = ch.codePointAt(0);
+    if (c >= 0x30A1 && c <= 0x30F6) out += String.fromCodePoint(c - 0x60);
+    else if ((c >= 0x3041 && c <= 0x3096) || c === 0x30FC) out += ch;
+  }
+  return out;
+}
+/* 名前順の基準：読み方があれば読み方、無ければ名前 */
+function nameSortKey(s){
+  return (s.yomi && String(s.yomi).trim()) ? String(s.yomi).trim() : String(s.name || '');
+}
+function togglePriority(ev, id){
+  if (ev) ev.stopPropagation();
+  const s = findStreamer(id); if (!s) return;
+  s.priority = !s.priority;
+  save();
+  renderList();
+  toast(s.priority ? '⭐ 優先にしました（一覧の最上部に固定されます）' : '優先を外しました');
+}
+/* 次の切り替わりまでの残り（分は切り捨て） */
+function fmtRemain(end, now){
+  let mins = Math.floor((end - now) / 60000);
+  if (mins < 0) mins = 0;
+  const hours = Math.floor(mins / 60);
+  return 'あと' + Math.floor(hours / 24) + '日' + (hours % 24) + '時間';
+}
+/* ===== イベント・日程（開始24時間前〜終了まで自動で優先） ===== */
+function eventPhase(ev, now){
+  const st = new Date(ev.start).getTime(), en = new Date(ev.end).getTime();
+  if (isNaN(st) || isNaN(en)) return 'past';
+  const n = now.getTime();
+  if (n >= en) return 'past';
+  if (n >= st) return 'live';
+  if (n >= st - 24 * 3600 * 1000) return 'soon';
+  return 'future';
+}
+function isEventPriority(s, now){
+  return (s.events || []).some(ev => { const p = eventPhase(ev, now); return p === 'live' || p === 'soon'; });
+}
+function effectivePriority(s, now){ return !!s.priority || isEventPriority(s, now); }
+function upcomingEvents(s, now){
+  return (s.events || []).filter(ev => eventPhase(ev, now) !== 'past')
+    .sort((a, b) => new Date(a.start) - new Date(b.start));
+}
+function fmtEvWhen(ev){
+  const st = new Date(ev.start), en = new Date(ev.end);
+  const sameDay = st.getFullYear() === en.getFullYear() && st.getMonth() === en.getMonth() && st.getDate() === en.getDate();
+  return fmtDateTime(st.getTime()) + '〜' + (sameDay
+    ? String(en.getHours()).padStart(2, '0') + ':' + String(en.getMinutes()).padStart(2, '0')
+    : fmtDateTime(en.getTime()));
+}
+function addEvent(){
+  const s = findStreamer(detailId); if (!s) return;
+  const name = (document.getElementById('ev-name').value || '').trim() || 'イベント';
+  const sv = document.getElementById('ev-start').value;
+  const evv = document.getElementById('ev-end').value;
+  if (!sv){ toast('開始日時を選んでください'); return; }
+  const start = new Date(sv);
+  if (isNaN(start.getTime())){ toast('開始日時が正しくありません'); return; }
+  const end = evv ? new Date(evv) : new Date(start.getTime() + 2 * 3600 * 1000);
+  if (isNaN(end.getTime()) || end <= start){ toast('終了日時は開始より後にしてください'); return; }
+  if (!Array.isArray(s.events)) s.events = [];
+  s.events.push({ id: uid(), name: name, start: start.toISOString(), end: end.toISOString() });
+  save();
+  renderDetailKeepScroll();
+  toast('イベントを追加しました');
+}
+function deleteEvent(evId){
+  const s = findStreamer(detailId); if (!s) return;
+  s.events = (s.events || []).filter(ev => ev.id !== evId);
+  save();
+  renderDetailKeepScroll();
+  toast('イベントを削除しました');
+}
+
+/* ===== 詳細 ===== */
+/* ===== スクショAI読み取り用の一時状態 ===== */
+let aiImageData = '', aiResult = null, aiTargetId = null, aiStatus = '', aiReading = false;
+let detailAiOpen = false;
+function toggleDetailAi(){ detailAiOpen = !detailAiOpen; renderDetailKeepScroll(); }
+function openDetail(id){
+  detailId = id;
+  const s = findStreamer(id); if (!s) return;
+  if (aiTargetId !== id){ aiImageData = ''; aiResult = null; aiStatus = ''; aiTargetId = id; }
+  simJun = currentJunKeyFor(s.closeTime, nowDate());
+  simTarget = null; simPattern = 0;
+  ['streamers','pt','settings'].forEach(t => document.getElementById('tab-'+t).classList.toggle('on', t==='streamers'));
+  renderDetail();
+  show('detail');
+}
+function tierOptions(sel){
+  return TIERS.map(v => '<option value="'+v+'"'+(v===sel?' selected':'')+'>'+fmtPt(v)+'</option>').join('');
+}
+/* 読み取り中の進捗表示で画面がトップへ戻らないよう、スクロール位置を保ったまま再描画する */
+function renderDetailKeepScroll(){
+  const y = window.scrollY || 0;
+  renderDetail();
+  window.scrollTo(0, y);
+  setTimeout(() => window.scrollTo(0, y), 80);
+}
+function renderDetail(){
+  const s = findStreamer(detailId); if (!s) { goList(); return; }
+  updateMonthStats();
+  const now = nowDate();
+  const jk = currentJunKeyFor(s.closeTime, now);
+  const curRange = junRange(s.closeTime, now, jk);
+  const total = monthTotal(s), ok = isAchieved(s), tier = achievedTier(total);
+  const act = s.cur.act[simJun] || {c:0,h:0,d:0};
+  if (!simTarget || !TIERS.includes(simTarget)){
+    simTarget = TIERS.find(v => v > (s.cur.pt[simJun]||0)) || 100000;
+  }
+  const junRows = JUNS.map(j => {
+    const r = junRange(s.closeTime, now, j.k);
+    const lv = lastVisitTs(s, j.k);
+    return '<div class="jun-row"><div class="jun-label">'+j.label+(j.k===jk?'<span class="cur-tag">現在</span>':'')
+      + '<span class="days">'+fmtBoundary(r.start)+'〜'+fmtBoundary(r.end)+'</span>'
+      + '<span class="days">最終訪問：'+(lv ? fmtDateTime(lv) : 'まだなし')+'</span></div>'
+      + '<select onchange="setPt(\''+j.k+'\', this.value)">'+tierOptions(s.cur.pt[j.k]||0)+'</select></div>';
+  }).join('')
+  + '<div class="visit-box">'
+  + '<div class="visit-line">現在旬（'+junLabel(jk)+'）の最終訪問：<b>'+(lastVisitTs(s, jk) ? fmtDateTime(lastVisitTs(s, jk)) : 'まだなし')+'</b></div>'
+  + '<p class="fineprint">Ptが変わらなくても、枠に行ったらこのボタンで来訪を記録できます。Ptを変更した時刻も最終訪問に反映されます。間違えた時は「訪問済みを取り消す」で訪問記録だけを消せます（Ptは変わりません）。</p>'
+  + '<button class="btn primary" onclick="markVisit()">🚶 来訪を記録する（'+junLabel(jk)+'）</button>'
+  + (lastVisitTs(s, jk) ? '<button class="btn danger" style="margin-top:8px" onclick="clearVisit(null,\''+s.id+'\',\''+jk+'\')">↩️ 訪問済みを取り消す（'+junLabel(jk)+'）</button>' : '')
+  + '</div>';
+  const hist = (s.history||[]).map(h => {
+    const hv = h.visits ? '<br>最終訪問：上旬 '+(h.visits.jou?fmtDateTime(h.visits.jou):'なし')+' / 中旬 '+(h.visits.chuu?fmtDateTime(h.visits.chuu):'なし')+' / 下旬 '+(h.visits.ge?fmtDateTime(h.visits.ge):'なし') : '';
+    return '<div class="hist-item"><span class="hm">'+h.month.replace('-','/')+'</span><br>'
+      + '上旬 '+fmtPt(h.pt.jou)+' / 中旬 '+fmtPt(h.pt.chuu)+' / 下旬 '+fmtPt(h.pt.ge)
+      + ' / 月間合計 '+fmtPtTotal(h.total)+' <span class="'+(h.achieved?'st-ok':'st-ng')+'">（'+(h.achieved?'達成':'未達成')+'）</span>'+hv+'</div>';
+  }).join('');
+  const evSorted = (s.events || []).slice().sort((a, b) => new Date(a.start) - new Date(b.start));
+  const evRows = evSorted.map(ev => {
+    const p = eventPhase(ev, now);
+    const badge = p === 'live' ? '<span class="ev-badge live">開催中</span>'
+      : p === 'soon' ? '<span class="ev-badge soon">まもなく・自動で優先中</span>'
+      : p === 'future' ? '<span class="ev-badge future">予定</span>'
+      : '<span class="ev-badge past">終了</span>';
+    return '<div class="ev-item"><div style="flex:1;min-width:0"><b>'+esc(ev.name)+'</b> '+badge+'<br><span class="ev-when">'+fmtEvWhen(ev)+'</span></div>'
+      + '<button class="btn mini danger" onclick="deleteEvent(\''+ev.id+'\')">削除</button></div>';
+  }).join('');
+  const aiOpen = detailAiOpen || aiReading || !!aiResult;
+  document.getElementById('detail-body').innerHTML =
+    '<div class="panel"><div class="card-top">'+avatarHtml(s)
+    + '<div><div class="card-name">'+esc(s.name)+(s.yomi ? '（'+esc(s.yomi)+'）' : '')+'</div>'
+    + '<div class="card-meta">締め '+esc(s.closeTime||'24:00')+' ・ 目標 月間'+fmtPt(s.target||1000)+' ・ 優先度 '+prioLevel(s)+'<br>現在：'+junLabel(jk)+'（'+fmtBoundary(curRange.start)+'〜'+fmtBoundary(curRange.end)+'）<br>次の切り替わり：'+fmtBoundary(curRange.end)+'（'+fmtRemain(curRange.end, now)+'）</div></div>'
+    + '<span class="badge '+(ok?'ok':'ng')+'">'+(ok?'達成':'未達成')+'</span></div>'
+    + '<div class="card-nums">'
+    + '<div class="num"><div class="v">'+fmtPtTotal(total)+'</div><div class="l">月間合計Pt</div></div>'
+    + '<div class="num"><div class="v">'+(tier ? fmtPt(tier)+'級' : '―')+'</div><div class="l">歌推し</div></div>'
+    + '<div class="num"><div class="v">'+fmtPt(Math.max(0,(s.target||1000)-total))+'</div><div class="l">目標まで</div></div>'
+    + '</div>'
+    + (s.memo ? '<div class="detail-memo"><span class="memo-label">📝 メモ</span>'+esc(s.memo)+'</div>' : '')
+    + linkChipsHtml(s, true)
+    + '<button class="btn" style="margin-top:12px" onclick="openForm(\''+s.id+'\')">配信者情報を編集</button></div>'
+
+    + '<div class="panel"><h3>今月のPt（'+s.cur.month.replace('-','年')+'月）― プルダウンで選択</h3>'+junRows+'</div>'
+
+    + '<div class="panel"><div class="panel-head"><h3>📅 イベント・日程</h3>'
+    + '<button class="info-btn" onclick="toggleInfo(\'detail-ev-info\')">i</button></div>'
+    + '<div id="detail-ev-info" class="info-box" style="display:none">リレー参加やイベントなどの予定を登録できます。開始24時間前になると自動で⭐優先になり、イベント終了まで一覧の最上部に固定されます。カードにはイベント名と時刻が出ます。終了日時が空欄なら開始から2時間後が終了です。</div>'
+    + (evRows || '<p class="fineprint" style="margin-top:8px">まだ予定がありません。</p>')
+    + '<div class="field" style="margin-top:10px"><label>イベント名</label><input type="text" id="ev-name" placeholder="例：リレー参加、歌推しイベント"></div>'
+    + '<div class="field"><label>開始日時</label><input type="datetime-local" id="ev-start"></div>'
+    + '<div class="field"><label>終了日時（任意）</label><input type="datetime-local" id="ev-end"></div>'
+    + '<button class="btn primary" onclick="addEvent()">この予定を追加する</button></div>'
+
+    + '<div class="panel"><div class="panel-head"><h3>📷 スクショ自動更新（AI）</h3>'
+    + '<button class="info-btn" onclick="toggleInfo(\'detail-ai-info\')">i</button>'
+    + '<button class="btn mini" onclick="toggleDetailAi()">'+(aiOpen ? '閉じる' : '開く')+'</button></div>'
+    + '<div id="detail-ai-info" class="info-box" style="display:none">この配信者（'+esc(s.name)+'）のデータとして更新します。ColorSingの「枠内情報＞推しバッジ」で旬を選んだ画面のスクショを選んでください。設定タブで自分の表示名とAIのAPIキー（Gemini／OpenAIのどちらか）の保存が必要です。<br>プレビューやアプリ内表示では表示側がファイル選択に対応しておらず、選択画面自体が出ない場合があります。その場合はChromeブラウザで開いてください（Chromeでは選択画面が正常に出ます）。Braveで読み取りが止まる場合は、ライオンマーク（Shields）がAIへの通信を止めている事があるので、Shieldsを下げるかChromeで試してください。</div>'
+    + (aiOpen ?
+        ((!getActiveAiKey() || !(state.myName||'').trim())
+          ? '<p class="fineprint" style="margin-top:10px">⚠️ 未設定：'+(!getActiveAiKey() ? 'APIキー ' : '')+(!(state.myName||'').trim() ? '自分の表示名' : '')+' を設定タブで保存してください。</p>'
+          : '<p class="fineprint" style="margin-top:10px">自分の表示名「'+esc(state.myName)+'」を探します。</p>')
+      + '<label class="btn" for="ai-img">スクリーンショットを選ぶ</label>'
+      + '<input type="file" id="ai-img" accept="image/*" class="file-input-hidden">'
+      + (aiImageData && aiTargetId === s.id ? '<img class="ai-preview" src="'+aiImageData+'" alt="選択したスクリーンショット">'
+        + '<button class="btn primary" onclick="readScreenshotWithAi()" '+(aiReading ? 'disabled style="opacity:.6"' : '')+'>'+(aiReading ? 'AIで読み取り中…' : 'AIで読み取る')+'</button>'
+        + (aiReading ? '<button class="btn" onclick="cancelAiReading()">読み取りを中止する</button>' : '') : '')
+      + (aiStatus ? '<p class="sim-line">'+esc(aiStatus)+'</p>' : '')
+      + (aiResult && aiTargetId === s.id ? '<div class="ai-result">読み取り結果（まだ更新していません）<br>'
+        + '対象の月・旬：<b>'+esc(aiResult.month.replace('-','年')+'月')+' '+junLabel(aiResult.jun)+'</b><br>'
+        + '見つけた名前：<b>'+esc(aiResult.matchedName || '')+'</b>（バッジ '+esc(aiResult.badgeText || fmtPt(aiResult.points))+'）<br>'
+        + '推しPt：<b>'+fmtPt(aiResult.points)+'</b><br>'
+        + 'この内容で '+esc(s.name)+' の'+junLabel(aiResult.jun)+'Ptを '+fmtPt(aiResult.points)+' に更新しますか？'
+        + '<button class="btn primary" style="margin-top:10px" onclick="applyAiResult()">この内容で更新する</button>'
+        + '<button class="btn" onclick="cancelAiResult()">キャンセル</button></div>' : '')
+      : '')
+    + '</div>'
+
+    + '<div class="panel"><h3>活動データ＆シミュレーション</h3>'
+    + '<div class="seg">'+JUNS.map(j => '<button class="'+(simJun===j.k?'on':'')+'" onclick="setSimJun(\''+j.k+'\')">'+j.label+'</button>').join('')+'</div>'
+    + '<div class="act-grid">'
+    + '<label>🪙 コイン数<input type="number" min="0" value="'+(act.c||'')+'" placeholder="0" onchange="setAct(\'c\', this.value)"></label>'
+    + '<label>👀 視聴(h)<input type="number" min="0" step="0.25" value="'+(act.h||'')+'" placeholder="0" onchange="setAct(\'h\', this.value)"></label>'
+    + '<label>💙 ♡日数<input type="number" min="0" max="31" value="'+(act.d||'')+'" placeholder="0" onchange="setAct(\'d\', this.value)"></label>'
+    + '</div>'
+    + '<p class="sim-line" style="margin-top:12px" id="sim-auto"></p>'
+    + '<div class="field" style="margin-top:10px"><label style="font-size:12px;color:var(--sub)">目標Pt</label>'
+    + '<select onchange="simTarget=parseInt(this.value); renderDetail()">'+tierOptions(simTarget)+'</select></div>'
+    + '<div class="seg">'+[0,1,2].map(i => '<button class="'+(simPattern===i?'on':'')+'" onclick="simPattern='+i+'; renderDetail()">パターン'+(i+1)+'</button>').join('')+'</div>'
+    + '<p class="sim-line" id="sim-remain"></p>'
+    + '</div>'
+
+    + '<div class="panel"><h3>過去ログ（月別履歴）</h3>'
+    + (hist || '<p class="fineprint">まだ履歴がありません。月が替わると前月の実績が自動でここに残ります。</p>')
+    + '</div>';
+  const aiInput = document.getElementById('ai-img');
+  if (aiInput) aiInput.addEventListener('change', function(){
+    const f = this.files && this.files[0];
+    if (!f) return;
+    setAiImageFromFile(f);
+    this.value = '';
+  });
+  renderSim(s);
+}
+/* スクショの月（数値）から対象月キーを作る。年は端末の現在年に合わせ、年跨ぎだけ補正する */
+function aiMonthKey(monthNum){
+  const now = nowDate();
+  let y = now.getFullYear();
+  const cm = now.getMonth() + 1;
+  if (monthNum === 12 && cm === 1) y -= 1;
+  if (monthNum === 1 && cm === 12) y += 1;
+  return y + '-' + String(monthNum).padStart(2, '0');
+}
+function parseAiJsonText(text){
+  const t = String(text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+  const start = t.indexOf('{'), end = t.lastIndexOf('}');
+  if (start < 0 || end < start) throw new Error('no-json');
+  return JSON.parse(t.slice(start, end + 1));
+}
+function setAiImageFromFile(f){
+  fileToScaledDataUrl(f, 1280, url => {
+    aiImageData = url; aiTargetId = detailId; aiResult = null; detailAiOpen = true;
+    aiStatus = '画像を読み込みました。「AIで読み取る」を押してください。';
+    renderDetail();
+  }, () => toast('画像を読み込めませんでした'));
+}
+/* 通信が返ってこない時に無限に「読み取り中」にならないよう、必ずタイムアウトで打ち切る */
+let aiAbortCtl = null, aiCancelled = false;
+async function fetchWithTimeout(url, opts, ms){
+  const ctl = new AbortController();
+  aiAbortCtl = ctl;
+  const timer = setTimeout(() => ctl.abort(), ms);
+  try{
+    const o = Object.assign({}, opts || {});
+    o.signal = ctl.signal;
+    return await fetch(url, o);
+  }finally{
+    clearTimeout(timer);
+  }
+}
+function cancelAiReading(){
+  aiCancelled = true;
+  if (aiAbortCtl) aiAbortCtl.abort();
+}
+/* このAPIキーで使えるモデルを自動で探す。新規キーは古いモデル（2.5/2.0）が404になるため固定名に頼らない */
+const AI_MODEL_PREFS = ['gemini-flash-latest','gemini-3.8-flash','gemini-3.5-flash','gemini-3.6-flash','gemini-flash-lite-latest','gemini-3.5-flash-lite','gemini-3.1-flash-lite','gemini-2.5-flash-lite','gemini-2.5-flash'];
+function pickAiModels(discovered){
+  const usable = (discovered || []).filter(n =>
+    n.indexOf('gemini') === 0 && n.indexOf('image') < 0 && n.indexOf('tts') < 0 &&
+    n.indexOf('embedding') < 0 && n.indexOf('live') < 0 && n.indexOf('audio') < 0 &&
+    n.indexOf('computer') < 0 && n.indexOf('robotics') < 0);
+  const out = [];
+  AI_MODEL_PREFS.forEach(p => { if (usable.includes(p) && !out.includes(p)) out.push(p); });
+  usable.filter(n => n.indexOf('flash') >= 0).forEach(n => { if (!out.includes(n)) out.push(n); });
+  usable.forEach(n => { if (!out.includes(n)) out.push(n); });
+  AI_MODEL_PREFS.forEach(p => { if (!out.includes(p)) out.push(p); });
+  return out.slice(0, 6);
+}
+/* 前回成功したモデルを覚えて次回は最初に試し、タイムアウトしたモデルは後回しにする */
+const AI_GOOD_MODEL_KEY = 'colorsing_oshi_ai_good_model_v1';
+const AI_BAD_MODEL_KEY = 'colorsing_oshi_ai_bad_model_v1';
+function getSavedModel(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } }
+function setSavedModel(k, v){ try{ if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); }catch(e){} }
+function orderAiModels(models){
+  const good = getSavedModel(AI_GOOD_MODEL_KEY);
+  const bad = getSavedModel(AI_BAD_MODEL_KEY);
+  let out = (models || []).slice();
+  if (bad && bad !== good && out.includes(bad)){
+    out = out.filter(m => m !== bad);
+    out.push(bad);
+  }
+  if (good && out.includes(good)){
+    out = out.filter(m => m !== good);
+    out.unshift(good);
+  }
+  return out;
+}
+async function discoverAiModels(key){
+  const res = await fetchWithTimeout('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000', {
+    headers: { 'x-goog-api-key': key }
+  }, 10000);
+  const data = await res.json().catch(() => null);
+  if (!res.ok){
+    const msg = (data && data.error && data.error.message) ? String(data.error.message) : ('HTTP ' + res.status);
+    throw new Error(msg.slice(0, 200));
+  }
+  const list = (data && data.models) ? data.models : [];
+  return list
+    .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map(m => String(m.name || '').replace(/^models\//, ''))
+    .filter(n => n);
+}
+async function testAiConnection(){
+  aiCancelled = false;
+  const el = document.getElementById('ai-key-status');
+  if (getAiProvider() === 'openai'){
+    const okey = getOpenAiKey();
+    if (!okey){ toast('先にOpenAI APIキーを入力して保存してください'); return; }
+    if (el) el.textContent = '接続テスト中…';
+    try{
+      const found = await discoverOpenAiModels(okey);
+      const picks = orderOpenAiModels(pickOpenAiModels(found));
+      const good = getSavedModel(OAI_GOOD_MODEL_KEY);
+      if (el) el.textContent = '接続OK：使えるモデル ' + found.length + '件。読み取りには「' + (picks[0] || '不明') + '」から使います。' + (good ? '（前回成功したモデルを優先中）' : '');
+      toast('接続できました');
+    }catch(e){
+      if (el) el.textContent = '接続エラー：' + String(e && e.message ? e.message : e).slice(0, 200);
+      toast('接続できませんでした');
+    }
+    return;
+  }
+  const key = getAiKey();
+  if (!key){ toast('先にAPIキーを入力して保存してください'); return; }
+  if (el) el.textContent = '接続テスト中…';
+  try{
+    const found = await discoverAiModels(key);
+    const picks = orderAiModels(pickAiModels(found));
+    const good = getSavedModel(AI_GOOD_MODEL_KEY);
+    if (el) el.textContent = '接続OK：使えるモデル ' + found.length + '件。読み取りには「' + (picks[0] || '不明') + '」から使います。' + (good ? '（前回成功したモデルを優先中）' : '');
+    toast('接続できました');
+  }catch(e){
+    if (el) el.textContent = '接続エラー：' + String(e && e.message ? e.message : e).slice(0, 200);
+    toast('接続できませんでした');
+  }
+}
+async function callGeminiText(key, body, statusCb){
+  const cb = statusCb || function(){};
+  let models = pickAiModels(null);
+  try{
+    const found = await discoverAiModels(key);
+    if (found.length) models = pickAiModels(found);
+  }catch(e){
+    if (aiCancelled){ const er = new Error('__cancelled__'); er.code = 'cancelled'; throw er; }
+    /* 一覧取得が制限・タイムアウトのキーもあるため、その場合は候補リストで続行する */
+  }
+  models = orderAiModels(models).slice(0, 3);
+  let lastErr = '', lastWasTimeout = false, lastWasBusy = false;
+  for (let mi = 0; mi < models.length; mi++){
+    const model = models[mi];
+    cb('AIで読み取り中です… モデル「' + model + '」で試しています（' + (mi + 1) + '/' + models.length + '）');
+    let data = null, modelDone = false;
+    for (let attempt = 0; attempt < 2 && !modelDone; attempt++){
+      let res;
+      try{
+        res = await fetchWithTimeout('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+          body: JSON.stringify(body)
+        }, 30000);
+      }catch(e){
+        if (aiCancelled){ const er = new Error('__cancelled__'); er.code = 'cancelled'; throw er; }
+        lastErr = '通信タイムアウト（30秒応答なし）';
+        lastWasTimeout = true; lastWasBusy = false;
+        setSavedModel(AI_BAD_MODEL_KEY, model);
+        modelDone = true;
+        break;
+      }
+      data = await res.json().catch(() => null);
+      if (res.ok){ modelDone = true; break; }
+      const msg = (data && data.error && data.error.message) ? String(data.error.message) : ('HTTP ' + res.status);
+      if (res.status === 404){
+        lastErr = msg; lastWasTimeout = false; lastWasBusy = false; data = null; modelDone = true; break;
+      }
+      if (res.status === 429 || res.status === 500 || res.status === 503){
+        /* Google側の混雑・一時エラー：少し待って同じモデルを1回だけ再試行し、ダメなら次のモデルへ */
+        lastErr = msg; lastWasBusy = true; lastWasTimeout = false; data = null;
+        if (attempt === 0){
+          cb('Google側が混雑しています。3秒待って再試行します…（モデル「' + model + '」）');
+          await new Promise(r => setTimeout(r, 3000));
+          if (aiCancelled){ const er = new Error('__cancelled__'); er.code = 'cancelled'; throw er; }
+          continue;
+        }
+        modelDone = true; break;
+      }
+      const er2 = new Error(msg.slice(0, 200)); er2.code = 'fatal'; throw er2;
+    }
+    if (!data) continue;
+    const parts = ((((data || {}).candidates || [])[0] || {}).content || {}).parts || [];
+    const text = parts.map(p => p.text || '').join('');
+    setSavedModel(AI_GOOD_MODEL_KEY, model);
+    if (getSavedModel(AI_BAD_MODEL_KEY) === model) setSavedModel(AI_BAD_MODEL_KEY, '');
+    return { text: text, model: model };
+  }
+  const er3 = new Error(lastErr || 'no-model');
+  er3.code = lastWasTimeout ? 'timeout' : (lastWasBusy ? 'busy' : 'error');
+  er3.lastErr = lastErr;
+  throw er3;
+}
+/* ===== OpenAI（ChatGPTの会社）で読み取る。モデル名は固定に頼らずキーで使えるものを自動で探す ===== */
+const OAI_MODEL_PREFS = ['gpt-6.1-terra','gpt-6-terra','gpt-6.1','gpt-6'];
+const OAI_GOOD_MODEL_KEY = 'colorsing_oshi_oai_good_model_v1';
+const OAI_BAD_MODEL_KEY = 'colorsing_oshi_oai_bad_model_v1';
+function pickOpenAiModels(discovered){
+  const usable = (discovered || []).filter(n =>
+    n.indexOf('gpt-') === 0 && n.indexOf('image') < 0 && n.indexOf('tts') < 0 &&
+    n.indexOf('audio') < 0 && n.indexOf('realtime') < 0 && n.indexOf('embedding') < 0 &&
+    n.indexOf('whisper') < 0 && n.indexOf('dall') < 0 && n.indexOf('sora') < 0 &&
+    n.indexOf('codex') < 0 && n.indexOf('moderation') < 0 && n.indexOf('transcribe') < 0 && n.indexOf('search') < 0);
+  const out = [];
+  OAI_MODEL_PREFS.forEach(p => { if (usable.includes(p) && !out.includes(p)) out.push(p); });
+  usable.filter(n => n.indexOf('terra') >= 0).forEach(n => { if (!out.includes(n)) out.push(n); });
+  usable.filter(n => n.indexOf('gpt-6') === 0).forEach(n => { if (!out.includes(n)) out.push(n); });
+  usable.forEach(n => { if (!out.includes(n)) out.push(n); });
+  OAI_MODEL_PREFS.forEach(p => { if (!out.includes(p)) out.push(p); });
+  return out.slice(0, 6);
+}
+function orderOpenAiModels(models){
+  const good = getSavedModel(OAI_GOOD_MODEL_KEY);
+  const bad = getSavedModel(OAI_BAD_MODEL_KEY);
+  let out = (models || []).slice();
+  if (bad && bad !== good && out.includes(bad)){
+    out = out.filter(m => m !== bad);
+    out.push(bad);
+  }
+  if (good && out.includes(good)){
+    out = out.filter(m => m !== good);
+    out.unshift(good);
+  }
+  return out;
+}
+async function discoverOpenAiModels(key){
+  const res = await fetchWithTimeout('https://api.openai.com/v1/models', {
+    headers: { 'Authorization': 'Bearer ' + key }
+  }, 10000);
+  const data = await res.json().catch(() => null);
+  if (!res.ok){
+    const msg = (data && data.error && data.error.message) ? String(data.error.message) : ('HTTP ' + res.status);
+    throw new Error(msg.slice(0, 200));
+  }
+  return ((data && data.data) || []).map(m => String(m.id || '')).filter(n => n);
+}
+async function callOpenAiVision(key, prompt, imageDataUrl, statusCb){
+  const cb = statusCb || function(){};
+  let models = pickOpenAiModels(null);
+  try{
+    const found = await discoverOpenAiModels(key);
+    if (found.length) models = pickOpenAiModels(found);
+  }catch(e){
+    if (aiCancelled){ const er = new Error('__cancelled__'); er.code = 'cancelled'; throw er; }
+    /* 一覧取得に失敗しても候補リストで続行する */
+  }
+  models = orderOpenAiModels(models).slice(0, 3);
+  let lastErr = '', lastWasTimeout = false, lastWasBusy = false;
+  for (let mi = 0; mi < models.length; mi++){
+    const model = models[mi];
+    cb('AIで読み取り中です… モデル「' + model + '」で試しています（' + (mi + 1) + '/' + models.length + '）');
+    const body = {
+      model: model,
+      messages: [{ role: 'user', content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: imageDataUrl } }
+      ]}],
+      max_completion_tokens: 4096
+    };
+    let data = null, modelDone = false;
+    for (let attempt = 0; attempt < 2 && !modelDone; attempt++){
+      let res;
+      try{
+        res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+          body: JSON.stringify(body)
+        }, 60000);
+      }catch(e){
+        if (aiCancelled){ const er = new Error('__cancelled__'); er.code = 'cancelled'; throw er; }
+        lastErr = '通信タイムアウト（60秒応答なし）';
+        lastWasTimeout = true; lastWasBusy = false;
+        setSavedModel(OAI_BAD_MODEL_KEY, model);
+        modelDone = true;
+        break;
+      }
+      data = await res.json().catch(() => null);
+      if (res.ok){ modelDone = true; break; }
+      const msg = (data && data.error && data.error.message) ? String(data.error.message) : ('HTTP ' + res.status);
+      if (res.status === 404){
+        lastErr = msg; lastWasTimeout = false; lastWasBusy = false; data = null; modelDone = true; break;
+      }
+      if (res.status === 429 || res.status === 500 || res.status === 503){
+        /* OpenAI側の混雑・一時エラー：少し待って同じモデルを1回だけ再試行し、ダメなら次のモデルへ */
+        lastErr = msg; lastWasBusy = true; lastWasTimeout = false; data = null;
+        if (attempt === 0){
+          cb('OpenAI側が混雑しています。3秒待って再試行します…（モデル「' + model + '」）');
+          await new Promise(r => setTimeout(r, 3000));
+          if (aiCancelled){ const er = new Error('__cancelled__'); er.code = 'cancelled'; throw er; }
+          continue;
+        }
+        modelDone = true; break;
+      }
+      const er2 = new Error(msg.slice(0, 200)); er2.code = 'fatal'; throw er2;
+    }
+    if (!data) continue;
+    const msgObj = ((((data || {}).choices || [])[0] || {}).message || {});
+    let text = '';
+    if (typeof msgObj.content === 'string') text = msgObj.content;
+    else if (Array.isArray(msgObj.content)) text = msgObj.content.map(p => (p && p.text) || '').join('');
+    if (!text){ lastErr = '応答が空でした'; data = null; continue; }
+    setSavedModel(OAI_GOOD_MODEL_KEY, model);
+    if (getSavedModel(OAI_BAD_MODEL_KEY) === model) setSavedModel(OAI_BAD_MODEL_KEY, '');
+    return { text: text, model: model };
+  }
+  const er3 = new Error(lastErr || 'no-model');
+  er3.code = lastWasTimeout ? 'timeout' : (lastWasBusy ? 'busy' : 'error');
+  er3.lastErr = lastErr;
+  throw er3;
+}
+/* 選ばれているAIでスクショを読み取る共通入口（プロンプトと画像を渡すと本文テキストが返る） */
+async function callAiVision(prompt, imageDataUrl, statusCb){
+  if (getAiProvider() === 'openai'){
+    return await callOpenAiVision(getOpenAiKey(), prompt, imageDataUrl, statusCb);
+  }
+  const base64 = String(imageDataUrl || '').split(',')[1] || '';
+  const body = {
+    contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'image/jpeg', data: base64 } }] }],
+    generationConfig: { temperature: 0, responseMimeType: 'application/json' }
+  };
+  return await callGeminiText(getAiKey(), body, statusCb);
+}
+async function readScreenshotWithAi(){
+  const s = findStreamer(detailId); if (!s) return;
+  const key = getActiveAiKey();
+  const myName = (state.myName || '').trim();
+  if (!key){ aiStatus = '設定タブで' + aiKeyName() + 'を保存してください。'; renderDetailKeepScroll(); return; }
+  if (!myName){ aiStatus = '設定タブで自分のColorSing表示名を保存してください。'; renderDetailKeepScroll(); return; }
+  if (!aiImageData){ aiStatus = '先にスクリーンショットを選んでください。'; renderDetailKeepScroll(); return; }
+  aiReading = true; aiResult = null; aiCancelled = false;
+  aiStatus = 'AIで読み取り中です…（通常は10〜30秒ほどです）'; renderDetailKeepScroll();
+  const prompt = 'ColorSingアプリの「枠内情報／推しバッジ」画面のスクリーンショットを解析してください。'
+    + '選択されているタブ（例：11月中旬）から月と旬を読み取り、一覧の中から表示名が「' + myName + '」に一致する行を探し、その行の緑色の♪付きバッジの値（例：3K、2K、1K）を推しPtに換算してください（3K=3000、1K=1000、0.5K=500）。赤いバッジやその他の数字は無視してください。'
+    + '返答はJSONのみで、説明文は付けないでください：{"found":true,"monthNum":11,"jun":"chuu","points":1000,"matchedName":"' + myName + '","badgeText":"1K"}'
+    + ' junは上旬=jou、中旬=chuu、下旬=ge。見つからない場合は{"found":false}だけを返してください。';
+  try{
+    const out = await callAiVision(prompt, aiImageData, msg => { aiStatus = msg; renderDetailKeepScroll(); });
+    const parsed = parseAiJsonText(out.text);
+    if (!parsed.found){ aiStatus = 'スクショの中に自分の表示名「' + myName + '」の行が見つかりませんでした。旬タブと表示名を確認してください。'; return; }
+    const monthNum = parseInt(parsed.monthNum, 10);
+    const points = parseInt(parsed.points, 10);
+    if (!(monthNum >= 1 && monthNum <= 12) || !['jou','chuu','ge'].includes(parsed.jun) || !(points > 0)){
+      aiStatus = '読み取り結果が不完全でした。もう一度試すか、手動で入力してください。'; return;
+    }
+    if (!TIERS.includes(points)){
+      aiStatus = '読み取った値 ' + points + ' が推しPtの段階にありませんでした。バッジの見間違いの可能性があるため、更新せず止めました。'; return;
+    }
+    aiResult = { month: aiMonthKey(monthNum), jun: parsed.jun, points: points, matchedName: String(parsed.matchedName || myName), badgeText: String(parsed.badgeText || '') };
+    aiStatus = '';
+  }catch(e){
+    if ((e && e.code === 'cancelled') || aiCancelled){
+      aiStatus = '読み取りを中止しました。もう一度「AIで読み取る」を押せます。';
+    }else if (e && e.code === 'timeout'){
+      aiStatus = aiSvcName() + 'から応答が返ってきませんでした（タイムアウト）。Braveで開いている場合は、アドレスバーのライオンマーク（Shields）がAIへの通信を止めていることがあります。Shieldsを下げるか、同じファイルをChromeで開いて試してください。電波の良い場所でもう一度でもOKです。';
+    }else if (e && e.code === 'busy'){
+      aiStatus = aiSvcName() + 'が混雑していて、試したモデル全部が「混雑中」でした。これは一時的なものなので、数分待ってからもう一度「AIで読み取る」を押してください。あんたの設定やキーは問題ありません。';
+    }else if (e && e.code === 'error'){
+      aiStatus = 'どのモデルでも読み取れませんでした。' + aiSvcName() + 'からの最後のエラー：' + String(e.lastErr || '').slice(0, 200) + '。設定タブの「AI接続テスト」で使えるモデルを確認してください。';
+    }else{
+      aiStatus = '読み取りに失敗しました：' + String(e && e.message ? e.message : e).slice(0, 180) + '。APIキーと通信状態を確認してください。';
+    }
+  }finally{
+    aiReading = false;
+    renderDetailKeepScroll();
+  }
+}
+function cancelAiResult(){ aiResult = null; aiStatus = '更新をキャンセルしました。'; renderDetail(); }
+/* ===== プロフィールスクショから配信者登録（AI） ===== */
+let regImages = [], regResults = [], regReading = false, batchEditingIdx = null;
+let regMode = 'profile', listResults = [];
+function toggleRegAi(){
+  const b = document.getElementById('reg-ai-body');
+  const open = b.style.display === 'none';
+  b.style.display = open ? 'block' : 'none';
+  document.getElementById('reg-ai-open').textContent = open ? '閉じる' : '開く';
+}
+function collapseRegPanel(){
+  const b = document.getElementById('reg-ai-body');
+  if (b) b.style.display = 'none';
+  const btn = document.getElementById('reg-ai-open');
+  if (btn) btn.textContent = '開く';
+}
+function toggleInfo(id){
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function setRegStatus(t){ const el = document.getElementById('reg-ai-status'); if (el) el.textContent = t || ''; }
+function setRegMode(m){
+  regMode = m;
+  const bp = document.getElementById('reg-mode-profile');
+  const bl = document.getElementById('reg-mode-list');
+  if (bp){ bp.className = 'btn' + (m === 'profile' ? ' primary' : ''); }
+  if (bl){ bl.className = 'btn' + (m === 'list' ? ' primary' : ''); }
+  const label = document.getElementById('reg-img-label');
+  if (label) label.textContent = m === 'list' ? 'フォロー一覧のスクショを選ぶ（複数枚まとめてOK）' : 'プロフィールのスクショを選ぶ（複数枚まとめてOK）';
+  const readBtn = document.getElementById('reg-ai-read');
+  if (readBtn && !regReading) readBtn.textContent = m === 'list' ? 'AIで一括読み取り（全員の名前・締め時間）' : 'AIで一括読み取り（名前・締め時間・リンク）';
+  renderCurrentResults();
+  setRegStatus(m === 'list' ? 'フォロー一覧モード：1枚のスクショから全員分を読み取ります。スクロールして複数枚に分けてもOKです（重複は自動で除きます）。' : 'プロフィールモード：1枚に1人のスクショを読み取ります。');
+}
+function renderCurrentResults(){
+  if (regMode === 'list') renderListResults(); else renderRegResults();
+}
+function readRegWithAi(){
+  if (regMode === 'list') readListWithAi(); else readProfileWithAi();
+}
+function fileToDataUrlPromise(f){
+  return new Promise(res => fileToScaledDataUrl(f, 1280, url => res(url), () => res(null)));
+}
+async function setRegImagesFromFiles(files){
+  const urls = [];
+  for (const f of files){
+    const u = await fileToDataUrlPromise(f);
+    if (u) urls.push(u);
+  }
+  if (!urls.length){ setRegStatus('画像を読み込めませんでした'); return; }
+  regImages = urls;
+  regResults = [];
+  listResults = [];
+  renderRegQueue();
+  renderCurrentResults();
+  document.getElementById('reg-ai-after').style.display = 'block';
+  setRegStatus(urls.length + ' 枚のスクショを読み込みました。「AIで一括読み取り」を押してください。');
+}
+function renderRegQueue(){
+  const box = document.getElementById('reg-queue');
+  if (!box) return;
+  if (!regImages.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'flex';
+  box.style.gap = '8px';
+  box.style.flexWrap = 'wrap';
+  box.innerHTML = regImages.map((u, i) => '<div style="text-align:center"><img src="' + u + '" alt="" style="width:56px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--line)"><div style="font-size:11px;color:var(--sub)">' + (i + 1) + '枚目</div></div>').join('');
+}
+function renderRegResults(){
+  const box = document.getElementById('reg-results');
+  if (!box) return;
+  if (!regResults.length){ box.innerHTML = ''; return; }
+  box.innerHTML = regResults.map((r, i) => {
+    if (r.error) return '<div class="panel" style="margin-top:8px;background:var(--bg2)"><b>' + (i + 1) + '枚目</b>：' + esc(r.error) + '</div>';
+    return '<div class="panel" style="margin-top:8px;background:var(--bg2)"><b>' + esc(r.name) + '</b>／締め ' + esc(r.closeTime) + (r.links.length ? '／リンク ' + r.links.length + ' 件' : '')
+      + (r.done
+        ? '<div style="margin-top:6px;color:var(--ok);font-weight:700">✅ 登録済み</div>'
+        : '<button class="btn primary" style="margin-top:8px" onclick="startBatchRegister(' + i + ')">この人を登録する</button>')
+      + '</div>';
+  }).join('');
+}
+function startBatchRegister(idx){
+  const r = regResults[idx];
+  if (!r || r.done || r.error) return;
+  openForm(null);
+  document.getElementById('f-name').value = r.name;
+  const closeSel = document.getElementById('f-close');
+  closeSel.innerHTML = closeOptions(r.closeTime);
+  closeSel.value = r.closeTime;
+  if (r.links.length) fillLinkFields(r.links.slice(0, LINK_MAX));
+  formImgSource = r.img;
+  openIconCrop(r.img);
+  batchEditingIdx = idx;
+  setRegStatus('「' + r.name + '」の登録画面を開きました。アイコンの範囲を調整して保存してください。');
+}
+const PROFILE_PROMPT = 'ColorSingアプリの配信者プロフィール画面のスクリーンショットを解析してください。'
+  + '画面の一番上に表示されている配信者の名前（絵文字が含まれていれば絵文字も含めて、そのまま）を読み取ってください。レベル数値や性別マークなどは含めないでください。'
+  + '次に締め時間を探してください。画面の中ほど右側のリーグ表示カードの右下や、ハッシュタグに「13時締め」のような表示があります。その数字が締め時間（時）です。見つからない場合は null にしてください。'
+  + 'さらに、画面の中にURLの文字列（x.com/…、twitter.com/…、lit.link/…、youtube.com/…、instagram.com/…など）が文字として書かれていれば、linksとして全部拾ってください。各リンクにlabel（X、lit.link、YouTubeなど短い名前）とurl（https://から始まる完全なURL）を付けてください。アイコンだけしかなくURLの文字が読めない場合は、推測で入れず、linksは空配列にしてください。'
+  + '返答はJSONのみで、説明文は付けないでください：{"found":true,"name":"配信者名","closeHour":13,"links":[{"label":"X","url":"https://x.com/example"}]}';
+function parseProfileResult(img, parsed){
+  const name = String((parsed && parsed.name) || '').trim();
+  if (!parsed || !parsed.found || !name) return { img: img, error: '名前を読み取れませんでした（プロフィール画面のスクショか確認してください）' };
+  let hour = parseInt(parsed.closeHour, 10);
+  if (!(hour >= 0 && hour <= 24)) hour = 24;
+  const links = [];
+  if (Array.isArray(parsed.links)){
+    const seenL = new Set();
+    parsed.links.forEach(l => {
+      if (!l) return;
+      const u = normalizeUrl(l.url || '');
+      if (!u || seenL.has(u)) return;
+      seenL.add(u);
+      links.push({ label: String(l.label || '').trim() || defaultLinkLabel(u), url: u });
+    });
+  }
+  return { img: img, name: name, closeTime: hour + ':00', links: links, done: false };
+}
+async function readProfileWithAi(){
+  const key = getActiveAiKey();
+  if (!key){ setRegStatus('設定タブで' + aiKeyName() + 'を保存してください。'); return; }
+  if (!regImages.length){ setRegStatus('先にスクショを選んでください。'); return; }
+  if (regReading) return;
+  regReading = true; aiCancelled = false;
+  regResults = [];
+  renderRegResults();
+  const readBtn = document.getElementById('reg-ai-read');
+  const cancelBtn = document.getElementById('reg-ai-cancel');
+  if (readBtn){ readBtn.disabled = true; readBtn.style.opacity = '.6'; readBtn.textContent = 'AIで読み取り中…'; }
+  if (cancelBtn) cancelBtn.style.display = 'block';
+  const total = regImages.length;
+  let stopMsg = '';
+  for (let i = 0; i < total; i++){
+    if (aiCancelled){ stopMsg = '読み取りを中止しました。終わった分は一覧に残っています。'; break; }
+    const img = regImages[i];
+    try{
+      const out = await callAiVision(PROFILE_PROMPT, img, msg => setRegStatus('（' + (i + 1) + '/' + total + ' 枚目）' + msg));
+      const parsed = parseAiJsonText(out.text);
+      regResults.push(parseProfileResult(img, parsed));
+      renderRegResults();
+    }catch(e){
+      if ((e && e.code === 'cancelled') || aiCancelled){
+        stopMsg = '読み取りを中止しました。終わった分は一覧に残っています。';
+        break;
+      }
+      regResults.push({ img: img, error: '読み取りに失敗しました' });
+      renderRegResults();
+      if (e && e.code === 'timeout'){ stopMsg = aiSvcName() + 'から応答が返ってきませんでした（タイムアウト）。残りは中断しました。電波の良い場所でもう一度試すか、Braveの場合はShieldsを下げる／Chromeで開いて試してください。'; break; }
+      if (e && e.code === 'busy'){ stopMsg = aiSvcName() + 'が混雑しています。残りは中断しました。数分待ってからもう一度押してください。設定やキーは問題ありません。'; break; }
+      if (e && e.code === 'error'){ stopMsg = '読み取れませんでした。' + aiSvcName() + 'からの最後のエラー：' + String(e.lastErr || '').slice(0, 200); break; }
+    }
+  }
+  regReading = false;
+  if (readBtn){ readBtn.disabled = false; readBtn.style.opacity = ''; readBtn.textContent = 'AIで一括読み取り（名前・締め時間・リンク）'; }
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  const okCount = regResults.filter(r => !r.error).length;
+  if (stopMsg){
+    setRegStatus(stopMsg);
+  } else if (okCount === 1 && total === 1){
+    setRegStatus('読み取りました。登録画面を開きます。');
+    startBatchRegister(0);
+  } else if (okCount > 0){
+    setRegStatus('読み取りが終わりました（' + okCount + '/' + total + ' 人）。一覧から一人ずつ「この人を登録する」を押してください。');
+  } else {
+    setRegStatus('読み取れた人がいませんでした。スクショを確認してもう一度試してください。');
+  }
+}
+/* ===== フォロー一覧スクショから一括登録（AI） ===== */
+const LIST_PROMPT = 'ColorSingアプリのフォロー一覧画面のスクリーンショットです。縦に並んでいる配信者一人ひとりについて読み取ってください。'
+  + '名前は、各行のアイコンの右に太字で表示されている表示名です（絵文字が含まれていれば絵文字も含めてそのまま。ただし行の中のレベル数値バッジ・性別マーク・数字だけのバッジは名前に入れないでください）。'
+  + '締め時間は、その人のハッシュタグの中にある「○時締め」の数字（時）です。書かれていない人は closeHour を null にしてください。'
+  + '画面の上下端で切れていて名前が最後まで読めない人は含めないでください。'
+  + '返答はJSONのみで、説明文は付けないでください：{"people":[{"name":"配信者名","closeHour":17},{"name":"別の人","closeHour":null}]}';
+function parseListPeople(parsed){
+  const out = [];
+  if (!parsed || !Array.isArray(parsed.people)) return out;
+  const seen = new Set();
+  parsed.people.forEach(p => {
+    if (!p) return;
+    const name = String(p.name || '').trim();
+    if (!name || seen.has(name)) return;
+    seen.add(name);
+    let hour = parseInt(p.closeHour, 10);
+    if (!(hour >= 0 && hour <= 24)) hour = 24;
+    out.push({ name: name, closeTime: hour + ':00', checked: true, done: false });
+  });
+  return out;
+}
+function renderListResults(){
+  const box = document.getElementById('reg-results');
+  if (!box) return;
+  if (regMode !== 'list') return;
+  if (!listResults.length){ box.innerHTML = ''; return; }
+  const existNames = new Set(state.streamers.map(s => s.name));
+  const selectable = listResults.filter(r => !r.done && !existNames.has(r.name));
+  const selCount = selectable.filter(r => r.checked).length;
+  let h = '<div class="panel" style="margin-top:8px;background:var(--bg2)"><b>読み取り結果：' + listResults.length + ' 人</b>'
+    + '<div style="margin-top:6px;font-size:12px;color:var(--sub)">チェックした人をまとめて登録します。目標Ptは全員 ' + fmtPt(1000) + '（後から各カードで変更できます）。アイコン画像は付きません。</div>'
+    + '<button class="btn primary" style="margin-top:8px' + (selCount ? '' : ';opacity:.5') + '" onclick="registerSelectedList()"' + (selCount ? '' : ' disabled') + '>選択した ' + selCount + ' 人を一括登録する</button></div>';
+  h += listResults.map((r, i) => {
+    const exists = existNames.has(r.name);
+    if (r.done) return '<div class="panel" style="margin-top:8px;background:var(--bg2)"><b>' + esc(r.name) + '</b>／締め ' + esc(r.closeTime) + '<div style="margin-top:4px;color:var(--ok);font-weight:700">✅ 登録しました</div></div>';
+    if (exists) return '<div class="panel" style="margin-top:8px;background:var(--bg2)"><b>' + esc(r.name) + '</b>／締め ' + esc(r.closeTime) + '<div style="margin-top:4px;color:var(--sub)">登録済みのため対象外です</div></div>';
+    return '<div class="panel" style="margin-top:8px;background:var(--bg2)"><label style="display:flex;gap:10px;align-items:center;cursor:pointer"><input type="checkbox" ' + (r.checked ? 'checked' : '') + ' onchange="toggleListCheck(' + i + ', this.checked)" style="width:20px;height:20px;flex:0 0 auto"><span><b>' + esc(r.name) + '</b>／締め ' + esc(r.closeTime) + '</span></label></div>';
+  }).join('');
+  box.innerHTML = h;
+}
+function toggleListCheck(i, v){ if (listResults[i]) listResults[i].checked = !!v; renderListResults(); }
+function registerSelectedList(){
+  const existNames = new Set(state.streamers.map(s => s.name));
+  const targets = listResults.filter(r => !r.done && r.checked && !existNames.has(r.name));
+  if (!targets.length){ toast('登録する人が選択されていません'); return; }
+  targets.forEach(r => {
+    const data = { name: r.name, icon: '🎤', iconImg: '', closeTime: r.closeTime, target: 1000, memo: '', links: [] };
+    const s = Object.assign({ id: uid(), history: [], cur: blankMonth(effectiveMonthKey(data.closeTime, nowDate())) }, data);
+    state.streamers.push(s);
+    r.done = true;
+  });
+  save();
+  rollover();
+  renderList();
+  renderListResults();
+  setRegStatus(targets.length + ' 人を一括登録しました。アイコンや目標Ptは各カードの編集から後で付けられます。');
+  toast(targets.length + ' 人を登録しました');
+  collapseRegPanel();
+}
+async function readListWithAi(){
+  const key = getActiveAiKey();
+  if (!key){ setRegStatus('設定タブで' + aiKeyName() + 'を保存してください。'); return; }
+  if (!regImages.length){ setRegStatus('先にスクショを選んでください。'); return; }
+  if (regReading) return;
+  regReading = true; aiCancelled = false;
+  listResults = [];
+  renderListResults();
+  const readBtn = document.getElementById('reg-ai-read');
+  const cancelBtn = document.getElementById('reg-ai-cancel');
+  if (readBtn){ readBtn.disabled = true; readBtn.style.opacity = '.6'; readBtn.textContent = 'AIで読み取り中…'; }
+  if (cancelBtn) cancelBtn.style.display = 'block';
+  const total = regImages.length;
+  let stopMsg = '';
+  for (let i = 0; i < total; i++){
+    if (aiCancelled){ stopMsg = '読み取りを中止しました。終わった分は一覧に残っています。'; break; }
+    const img = regImages[i];
+    try{
+      const out = await callAiVision(LIST_PROMPT, img, msg => setRegStatus('（' + (i + 1) + '/' + total + ' 枚目）' + msg));
+      const parsed = parseAiJsonText(out.text);
+      const people = parseListPeople(parsed);
+      const known = new Set(listResults.map(r => r.name));
+      people.forEach(p => { if (!known.has(p.name)){ listResults.push(p); known.add(p.name); } });
+      renderListResults();
+    }catch(e){
+      if ((e && e.code === 'cancelled') || aiCancelled){
+        stopMsg = '読み取りを中止しました。終わった分は一覧に残っています。';
+        break;
+      }
+      if (e && e.code === 'timeout'){ stopMsg = aiSvcName() + 'から応答が返ってきませんでした（タイムアウト）。残りは中断しました。電波の良い場所でもう一度試すか、Braveの場合はShieldsを下げる／Chromeで開いて試してください。'; break; }
+      if (e && e.code === 'busy'){ stopMsg = aiSvcName() + 'が混雑しています。残りは中断しました。数分待ってからもう一度押してください。設定やキーは問題ありません。'; break; }
+      stopMsg = '読み取れませんでした。' + aiSvcName() + 'からの最後のエラー：' + String((e && e.lastErr) || '').slice(0, 200);
+      break;
+    }
+  }
+  regReading = false;
+  if (readBtn){ readBtn.disabled = false; readBtn.style.opacity = ''; readBtn.textContent = 'AIで一括読み取り（全員の名前・締め時間）'; }
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  if (stopMsg){
+    setRegStatus(stopMsg);
+  } else if (listResults.length){
+    setRegStatus('読み取りが終わりました（' + listResults.length + ' 人）。内容を確認して「一括登録する」を押してください。');
+  } else {
+    setRegStatus('読み取れた人がいませんでした。フォロー一覧のスクショか確認してください。');
+  }
+}
+function applyAiResult(){
+  const s = findStreamer(detailId); if (!s || !aiResult) return;
+  const r = aiResult;
+  if (r.month === s.cur.month){
+    ensureVisitFields(s);
+    if (r.points !== (s.cur.pt[r.jun] || 0)) s.cur.ptAt[r.jun] = Date.now();
+    s.cur.pt[r.jun] = r.points;
+    save();
+    aiResult = null; aiImageData = '';
+    aiStatus = '更新しました：' + r.month.replace('-','年') + '月 ' + junLabel(r.jun) + ' → ' + fmtPt(r.points);
+    toast('更新しました');
+    renderDetail();
+    return;
+  }
+  const h = (s.history || []).find(x => x.month === r.month);
+  if (h){
+    h.pt[r.jun] = r.points;
+    h.total = h.pt.jou + h.pt.chuu + h.pt.ge;
+    h.achieved = h.total >= (s.target || 1000);
+    save();
+    aiResult = null; aiImageData = '';
+    aiStatus = '過去ログを更新しました：' + r.month.replace('-','年') + '月 ' + junLabel(r.jun) + ' → ' + fmtPt(r.points);
+    toast('過去ログを更新しました');
+    renderDetail();
+    return;
+  }
+  aiStatus = '読み取った月（' + r.month.replace('-','/') + '）は今月でも過去ログでもないため、更新しませんでした。スクショで選ばれている旬タブを確認してください。';
+  renderDetail();
+}
+function setPt(jk, v){
+  const s = findStreamer(detailId); if (!s) return;
+  ensureVisitFields(s);
+  const nv = parseInt(v,10)||0;
+  if (nv !== (s.cur.pt[jk] || 0)) s.cur.ptAt[jk] = Date.now();
+  s.cur.pt[jk] = nv; save(); renderDetail();
+}
+/* 一覧カードの現在旬Ptだけをその場で変更する */
+function setCardPt(ev, id, jk, v){
+  if (ev) ev.stopPropagation();
+  const s = findStreamer(id); if (!s || !s.cur || !s.cur.pt || !(jk in s.cur.pt)) return;
+  ensureVisitFields(s);
+  const nv = parseInt(v, 10) || 0;
+  if (nv !== (s.cur.pt[jk] || 0)) s.cur.ptAt[jk] = Date.now();
+  s.cur.pt[jk] = nv;
+  save();
+  renderList();
+  toast(s.name + ' の' + junLabel(jk) + 'Ptを ' + fmtPt(nv) + ' に変更しました');
+}
+function markVisit(){
+  const s = findStreamer(detailId); if (!s) return;
+  ensureVisitFields(s);
+  const jk = currentJunKeyFor(s.closeTime, nowDate());
+  s.cur.visits[jk] = Date.now();
+  save();
+  toast('来訪を記録しました（' + junLabel(jk) + '）');
+  renderDetail();
+}
+/* 間違えて付けた訪問済みを、その旬の訪問記録だけ消して未訪問に戻す（Ptは変えない） */
+function clearVisit(ev, id, jk){
+  if (ev) ev.stopPropagation();
+  const s = findStreamer(id); if (!s || !s.cur) return;
+  ensureVisitFields(s);
+  if (!lastVisitTs(s, jk)) return;
+  if (!confirm(junLabel(jk) + 'の訪問済みを取り消しますか？\nPtの値は変わりません。')) return;
+  s.cur.visits[jk] = 0;
+  s.cur.ptAt[jk] = 0;
+  save();
+  const detailActive = document.getElementById('view-detail').classList.contains('active');
+  if (detailActive && detailId === id) renderDetail(); else renderList();
+  toast(junLabel(jk) + 'の訪問済みを取り消しました');
+}
+function setSimJun(jk){ simJun = jk; simTarget = null; renderDetail(); }
+function setAct(k, v){
+  const s = findStreamer(detailId); if (!s) return;
+  const n = parseFloat(v); s.cur.act[simJun][k] = isNaN(n) ? 0 : Math.max(0, n);
+  save(); renderDetail();
+}
+function renderSim(s){
+  const act = s.cur.act[simJun] || {c:0,h:0,d:0};
+  /* 活動量だけで到達できる最大の推しPt */
+  let reach = 0;
+  TIERS.forEach(v => {
+    if (!v) return;
+    const cond = ptCond(v); if (!cond) return;
+    const met = cond.some(p => act.c >= p[0] && (p.length < 2 || act.h >= p[1]) && (p.length < 3 || act.d >= p[2]));
+    if (met) reach = v;
+  });
+  const auto = document.getElementById('sim-auto');
+  if (auto) auto.innerHTML = 'この活動量で到達できる推しPt：<b>' + (reach ? fmtPt(reach) : 'まだなし') + '</b>';
+  const box = document.getElementById('sim-remain');
+  if (!box) return;
+  const cond = ptCond(simTarget);
+  if (!cond){ box.innerHTML = ''; return; }
+  const p = cond[simPattern];
+  const rc = Math.max(0, p[0]-act.c), rh = p.length>1 ? Math.max(0, p[1]-act.h) : 0, rd = p.length>2 ? Math.max(0, p[2]-act.d) : 0;
+  let need = '必要：🪙'+fmtCoin(p[0]);
+  if (p.length>1) need += ' ・ 👀'+fmtH(p[1])+'h';
+  if (p.length>2) need += ' ・ 💙'+p[2]+'日';
+  if (rc===0 && rh===0 && rd===0){
+    box.innerHTML = need + '<br><span class="done">✔ このパターンで '+fmtPt(simTarget)+' 達成できる活動量です</span>';
+  } else {
+    let rem = [];
+    if (rc>0) rem.push('🪙あと'+fmtCoin(rc));
+    if (rh>0) rem.push('👀あと'+fmtH(rh)+'h');
+    if (rd>0) rem.push('💙あと'+rd+'日');
+    box.innerHTML = need + '<br><span class="remain">目標まで：' + rem.join(' ・ ') + '</span>';
+  }
+}
+
+/* ===== 配信者フォーム ===== */
+let formId = null;
+let formImg = '';
+let formImgSource = ''; /* 範囲調整用に元の大きな画像を保持する */
+let cropState = null;
+/* リンクURLの整形：https:// が無ければ付ける。変な文字列は弾く */
+function normalizeUrl(u){
+  let t = String(u || '').trim();
+  if (!t) return '';
+  if (!/^https?:\/\//i.test(t)) t = 'https://' + t;
+  if (!/^https?:\/\/[^\s.]+\.[^\s]+/i.test(t)) return '';
+  return t;
+}
+function defaultLinkLabel(url){
+  const m = String(url || '').match(/^https?:\/\/([^\/]+)/i);
+  if (!m) return 'リンク';
+  const host = m[1].replace(/^www\./, '');
+  if (host.includes('x.com') || host.includes('twitter.com')) return 'X';
+  if (host.includes('lit.link')) return 'lit.link';
+  if (host.includes('youtube.com') || host.includes('youtu.be')) return 'YouTube';
+  if (host.includes('instagram.com')) return 'Instagram';
+  return host;
+}
+function linkChipsHtml(s, big){
+  const links = Array.isArray(s.links) ? s.links.filter(l => l && l.url) : [];
+  if (!links.length) return '';
+  return '<div class="link-chips'+(big ? ' big' : '')+'">'
+    + links.map(l => '<a class="link-chip" href="'+esc(l.url)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 '+esc(l.label || defaultLinkLabel(l.url))+'</a>').join('')
+    + '</div>';
+}
+const LINK_MAX = 6;
+function buildLinkRows(){
+  const box = document.getElementById('link-rows');
+  if (!box || box.children.length) return;
+  const hints = ['X', 'lit.link', 'YouTube', '', '', ''];
+  let h = '';
+  for (let i = 0; i < LINK_MAX; i++){
+    h += '<div style="display:flex;gap:6px;margin-bottom:6px">'
+      + '<input type="text" id="f-link-label-' + i + '" placeholder="名前（例：' + (hints[i] || 'リンク') + '）" style="flex:0 0 34%">'
+      + '<input type="url" id="f-link-url-' + i + '" placeholder="https://…" style="flex:1">'
+      + '</div>';
+  }
+  box.innerHTML = h;
+}
+/* リンク集ページ（lit.link等）のHTMLからリンク先を抜き出す */
+function parsePageLinks(htmlText){
+  const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+  const seen = new Set();
+  const out = [];
+  doc.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href') || '';
+    if (!/^https?:\/\//i.test(href)) return;
+    if (/lit\.link|facebook\.com\/tr|googletagmanager|google-analytics|w3\.org|schema\.org|example\.com/i.test(href)) return;
+    if (seen.has(href)) return;
+    seen.add(href);
+    let label = (a.getAttribute('aria-label') || a.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!label || label.length > 24) label = defaultLinkLabel(href);
+    out.push({ label: label, url: href });
+  });
+  let pageName = '';
+  const og = doc.querySelector('meta[property="og:title"]');
+  if (og) pageName = (og.getAttribute('content') || '').replace(/\s*lit\.link.*$/i, '').replace(/\s*[|｜].*$/, '').trim();
+  return { links: out.slice(0, 12), pageName: pageName };
+}
+/* リーダー形式（Markdown）のテキストからリンク先を抜き出す（中継サーバーの代替ルート用） */
+function parseMarkdownLinks(mdText){
+  const seen = new Set();
+  const out = [];
+  const push = (label, url) => {
+    url = (url || '').trim();
+    if (!/^https?:\/\//i.test(url)) return;
+    if (/lit\.link|facebook\.com\/tr|googletagmanager|google-analytics|analytics\.twitter\.com|w3\.org|schema\.org|example\.com/i.test(url)) return;
+    if (seen.has(url)) return;
+    seen.add(url);
+    let lab = (label || '').replace(/[#>*`]/g, '').replace(/\s+/g, ' ').trim();
+    if (!lab || lab.length > 24) lab = defaultLinkLabel(url);
+    out.push({ label: lab, url: url });
+  };
+  let text = String(mdText || '');
+  let pageName = '';
+  const tm = text.match(/^Title:\s*(.+)$/m);
+  if (tm) pageName = tm[1].replace(/\s*lit\.link.*$/i, '').replace(/\s*[|｜].*$/, '').trim();
+  // 画像付きリンク [![alt](img) 後続テキスト](url) を先に処理（ラベルは後続テキスト優先）
+  text = text.replace(/\[!\[([^\]]*)\]\([^)]*\)([^\]]*)\]\((https?:[^)\s]+)\)/g, (m, alt, tail, url) => {
+    const tailLab = (tail || '').trim();
+    push(tailLab ? tailLab : (alt || '').replace(/^Image\s*\d+\s*[:：]?\s*/i, ''), url);
+    return ' ';
+  });
+  // 残りの画像 ![...](...) は除去
+  text = text.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ');
+  // 通常リンク [text](url)
+  text.replace(/\[([^\]]*)\]\((https?:[^)\s]+)\)/g, (m, label, url) => { push(label, url); return ' '; });
+  return { links: out.slice(0, 12), pageName: pageName };
+}
+async function importLinksToForm(){
+  const status = document.getElementById('f-lit-status');
+  const inp = document.getElementById('f-lit-url');
+  const pageUrl = normalizeUrl(inp ? inp.value : '');
+  if (!pageUrl){ if (status) status.textContent = 'リンク集ページのURLを入力してください。'; return; }
+  if (status) status.textContent = 'ページを読み取り中…';
+  try{
+    let parsed = null;
+    try{
+      const r1 = await fetchWithTimeout(pageUrl, {}, 15000);
+      if (r1.ok) parsed = parsePageLinks(await r1.text());
+    }catch(e1){}
+    if (!parsed || !parsed.links.length){
+      try{
+        const r2 = await fetchWithTimeout('https://api.allorigins.win/raw?url=' + encodeURIComponent(pageUrl), {}, 20000);
+        if (r2.ok){ const p2 = parsePageLinks(await r2.text()); if (p2.links.length) parsed = p2; }
+      }catch(e2){}
+    }
+    if (!parsed || !parsed.links.length){
+      if (status) status.textContent = '中継サーバーが使えないため、別ルートで読み取り中…（少し時間がかかります）';
+      const r3 = await fetchWithTimeout('https://r.jina.ai/' + pageUrl, {}, 30000);
+      if (!r3.ok) throw new Error('reader-http-' + r3.status);
+      parsed = parseMarkdownLinks(await r3.text());
+    }
+    if (!parsed.links.length){ if (status) status.textContent = 'リンクが見つかりませんでした。手入力するか、プロフィール画面のスクショ読み取りを使ってください。'; return; }
+    const cur = collectLinkFields();
+    const have = new Set(cur.map(l => l.url));
+    const merged = cur.concat(parsed.links.filter(l => !have.has(l.url))).slice(0, LINK_MAX);
+    fillLinkFields(merged);
+    const nameInp = document.getElementById('f-name');
+    if (parsed.pageName && nameInp && !nameInp.value.trim()) nameInp.value = parsed.pageName;
+    if (status) status.textContent = 'リンクを ' + parsed.links.length + ' 件見つけて取り込みました（欄は最大' + LINK_MAX + '件）。不要なものはURL欄を空にして保存してください。';
+  }catch(e){
+    if (status) status.textContent = 'ページを読み取れませんでした（ページ側の制限の可能性があります）。手入力するか、スクショ読み取りを使ってください。';
+  }
+}
+function fillLinkFields(links){
+  buildLinkRows();
+  const arr = Array.isArray(links) ? links : [];
+  for (let i = 0; i < LINK_MAX; i++){
+    const l = arr[i] || {};
+    document.getElementById('f-link-label-' + i).value = l.label || '';
+    document.getElementById('f-link-url-' + i).value = l.url || '';
+  }
+}
+function collectLinkFields(){
+  const out = [];
+  for (let i = 0; i < LINK_MAX; i++){
+    const urlEl = document.getElementById('f-link-url-' + i);
+    if (!urlEl) continue;
+    const url = normalizeUrl(urlEl.value);
+    if (!url) continue;
+    const label = document.getElementById('f-link-label-' + i).value.trim() || defaultLinkLabel(url);
+    out.push({ label: label, url: url });
+  }
+  return out;
+}
+function avatarHtml(s){
+  if (s.iconImg) return '<div class="avatar"><img src="'+s.iconImg+'" alt=""></div>';
+  return '<div class="avatar">'+esc(s.icon||'🎤')+'</div>';
+}
+function closeOptions(sel){
+  const opts = [];
+  for (let h = 0; h < 24; h++) opts.push(h+':00');
+  opts.push('24:00');
+  if (sel && !opts.includes(sel)) opts.unshift(sel);
+  return opts.map(o => '<option value="'+o+'"'+(o===sel?' selected':'')+'>'+o+'</option>').join('');
+}
+function setFormImgPreview(){
+  const p = document.getElementById('f-img-preview');
+  if (formImg){ p.innerHTML = '<img src="'+formImg+'" alt="">'; }
+  else { p.textContent = document.getElementById('f-icon').value.trim() || '🎤'; }
+  const ob = document.getElementById('f-crop-open');
+  if (ob) ob.style.display = formImg ? 'block' : 'none';
+}
+function clearFormImg(){
+  formImg = '';
+  formImgSource = '';
+  cancelCrop();
+  document.getElementById('f-img').value = '';
+  setFormImgPreview();
+}
+/* ===== アイコン画像の範囲調整（ズーム・位置） ===== */
+function cropMetrics(){
+  const wrap = document.getElementById('f-crop-wrap');
+  const W = wrap.clientWidth || 300;
+  const c = cropState;
+  const base = Math.max(W / c.iw, W / c.ih);
+  const k = base * c.z;
+  return { W: W, k: k, dispW: c.iw * k, dispH: c.ih * k };
+}
+function renderCrop(){
+  if (!cropState) return;
+  const m = cropMetrics();
+  const maxOx = Math.max(0, (m.dispW - m.W) / 2);
+  const maxOy = Math.max(0, (m.dispH - m.W) / 2);
+  cropState.ox = Math.min(maxOx, Math.max(-maxOx, cropState.ox));
+  cropState.oy = Math.min(maxOy, Math.max(-maxOy, cropState.oy));
+  const img = document.getElementById('f-crop-img');
+  img.style.width = m.dispW + 'px';
+  img.style.height = m.dispH + 'px';
+  img.style.transform = 'translate(-50%,-50%) translate(' + cropState.ox + 'px,' + cropState.oy + 'px)';
+}
+function openIconCrop(src){
+  const img = new Image();
+  img.onload = () => {
+    cropState = { img: img, iw: img.naturalWidth || img.width, ih: img.naturalHeight || img.height, z: 1, ox: 0, oy: 0, src: src };
+    document.getElementById('f-crop-img').src = src;
+    document.getElementById('f-crop-zoom').value = '100';
+    document.getElementById('f-crop-area').style.display = 'block';
+    renderCrop();
+    /* キャンセルしても真ん中切り抜きで使えるよう、先に中央範囲を仮設定する */
+    const d = computeCroppedDataUrl();
+    if (d){ formImg = d; setFormImgPreview(); }
+  };
+  img.onerror = () => toast('画像を開けませんでした');
+  img.src = src;
+}
+function computeCroppedDataUrl(){
+  if (!cropState) return '';
+  const r = cropSourceRect();
+  try{
+    const cv = document.createElement('canvas');
+    cv.width = 160; cv.height = 160;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 160, 160);
+    ctx.drawImage(cropState.img, r.sx, r.sy, r.sw, r.sw, 0, 0, 160, 160);
+    return cv.toDataURL('image/jpeg', 0.85);
+  }catch(e){ return ''; }
+}
+function reopenCrop(){
+  const src = formImgSource || formImg;
+  if (!src){ toast('先に画像を選んでください'); return; }
+  openIconCrop(src);
+}
+function cancelCrop(){
+  cropState = null;
+  const a = document.getElementById('f-crop-area');
+  if (a) a.style.display = 'none';
+}
+function cropSourceRect(){
+  const m = cropMetrics();
+  const c = cropState;
+  const sx = c.iw / 2 - (m.W / 2 + c.ox) / m.k;
+  const sy = c.ih / 2 - (m.W / 2 + c.oy) / m.k;
+  const sw = m.W / m.k;
+  return { sx: sx, sy: sy, sw: sw };
+}
+function applyCrop(){
+  if (!cropState) return;
+  const d = computeCroppedDataUrl();
+  if (d){
+    formImg = d;
+    cancelCrop();
+    setFormImgPreview();
+    toast('範囲を設定しました');
+  }else{
+    toast('この画像は範囲調整できませんでした（URL画像の制限）。そのまま使います');
+    cancelCrop();
+  }
+}
+function openForm(id){
+  buildLinkRows();
+  batchEditingIdx = null;
+  formId = id;
+  const sel = document.getElementById('f-target');
+  sel.innerHTML = MILESTONES.map(v => '<option value="'+v+'">'+fmtPt(v)+'級（月間'+fmtPt(v)+')</option>').join('');
+  const closeSel = document.getElementById('f-close');
+  const del = document.getElementById('f-delete');
+  document.getElementById('f-icon').oninput = function(){ if (!formImg) setFormImgPreview(); };
+  if (id){
+    const s = findStreamer(id); if (!s) return;
+    document.getElementById('form-title').textContent = '配信者を編集';
+    document.getElementById('f-name').value = s.name||'';
+    document.getElementById('f-yomi').value = s.yomi||'';
+    document.getElementById('f-plevel').innerHTML = prioOptions(prioLevel(s));
+    document.getElementById('f-icon').value = s.icon||'';
+    document.getElementById('f-memo').value = s.memo||'';
+    closeSel.innerHTML = closeOptions(s.closeTime||'24:00');
+    sel.value = String(s.target||1000);
+    formImg = s.iconImg || '';
+    formImgSource = formImg;
+    fillLinkFields(s.links);
+    del.style.display = 'block';
+  } else {
+    document.getElementById('form-title').textContent = '配信者を追加';
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-yomi').value = '';
+    document.getElementById('f-plevel').innerHTML = prioOptions(6);
+    document.getElementById('f-icon').value = '';
+    document.getElementById('f-memo').value = '';
+    closeSel.innerHTML = closeOptions('24:00');
+    sel.value = '1000';
+    formImg = '';
+    formImgSource = '';
+    fillLinkFields([]);
+    del.style.display = 'none';
+  }
+  cancelCrop();
+  document.getElementById('f-img').value = '';
+  const urlInp = document.getElementById('f-img-url');
+  if (urlInp) urlInp.value = (formImg && /^https:\/\//i.test(formImg)) ? formImg : '';
+  setFormImgPreview();
+  document.getElementById('modal-bg').classList.add('show');
+}
+function closeForm(){ document.getElementById('modal-bg').classList.remove('show'); }
+function saveForm(){
+  const name = document.getElementById('f-name').value.trim();
+  if (!name){ toast('名前を入力してください'); return; }
+  const data = {
+    name: name,
+    yomi: toHiragana(document.getElementById('f-yomi').value),
+    pLevel: parseInt(document.getElementById('f-plevel').value, 10) || 6,
+    icon: document.getElementById('f-icon').value.trim() || '🎤',
+    iconImg: formImg || '',
+    closeTime: document.getElementById('f-close').value || '24:00',
+    target: parseInt(document.getElementById('f-target').value,10) || 1000,
+    memo: document.getElementById('f-memo').value.trim(),
+    links: collectLinkFields()
+  };
+  if (formId){
+    Object.assign(findStreamer(formId), data);
+    toast('保存しました');
+  } else {
+    const s = Object.assign({ id: uid(), history: [], cur: blankMonth(effectiveMonthKey(data.closeTime, nowDate())) }, data);
+    state.streamers.push(s);
+    toast('追加しました');
+    if (batchEditingIdx !== null && regResults[batchEditingIdx]){
+      regResults[batchEditingIdx].done = true;
+      batchEditingIdx = null;
+      renderRegResults();
+      const remain = regResults.filter(r => !r.error && !r.done).length;
+      setRegStatus(remain ? '登録しました。残り ' + remain + ' 人です。一覧から次を選んでください。' : '全員の登録が終わりました。');
+      if (!remain) collapseRegPanel();
+    }
+  }
+  save(); closeForm();
+  rollover();
+  if (detailId){ const ds = findStreamer(detailId); if (ds) simJun = currentJunKeyFor(ds.closeTime, nowDate()); renderDetail(); } else renderList();
+}
+function deleteStreamer(){
+  if (!formId) return;
+  if (!confirm('この配信者と履歴をすべて削除します。よろしいですか？')) return;
+  state.streamers = state.streamers.filter(s => s.id !== formId);
+  save(); closeForm(); detailId = null; goList(); renderList();
+  toast('削除しました');
+}
+
+/* ===== PT表 ===== */
+function renderPt(){
+  const rows = Object.keys(PT).map(Number).sort((a,b)=>a-b).map(v => {
+    const c = PT[v];
+    const cell = p => {
+      let out = '<span class="r">🪙'+fmtCoin(p[0])+'</span>';
+      if (p.length>1) out += '<span class="r">👀'+fmtH(p[1])+'h</span>';
+      if (p.length>2 && p[2]>0) out += '<span class="r">💙'+p[2]+'日</span>';
+      return out;
+    };
+    return '<tr><td class="tier">'+fmtPt(v)+'</td><td>'+cell(c[0])+'</td><td>'+cell(c[1])+'</td><td>'+cell(c[2])+'</td></tr>';
+  }).join('');
+  document.getElementById('pt-body').innerHTML = rows;
+}
+
+/* ===== 設定 ===== */
+function renderSettings(){
+  const json = JSON.stringify(state);
+  const histCount = state.streamers.reduce((n,s)=> n + (s.history ? s.history.length : 0), 0);
+  document.getElementById('st-count').textContent = state.streamers.length;
+  document.getElementById('st-hist').textContent = histCount;
+  document.getElementById('st-size').textContent = (new Blob([json]).size/1024).toFixed(1)+'KB';
+  const mn = document.getElementById('set-myname');
+  if (mn) mn.value = state.myName || '';
+  const pv = document.getElementById('set-aiprovider');
+  if (pv) pv.value = getAiProvider();
+  const ak = document.getElementById('set-apikey');
+  if (ak) ak.value = getAiKey();
+  const ok = document.getElementById('set-oaikey');
+  if (ok) ok.value = getOpenAiKey();
+  applyAiProviderUi();
+  const st = document.getElementById('ai-key-status');
+  if (st) st.textContent = getActiveAiKey() ? ('APIキー：保存済み（この端末内のみ／使用中：' + aiSvcName() + '）') : 'APIキー：未設定（未設定だとスクショ読み取りは使えません）';
+}
+function applyAiProviderUi(){
+  const p = getAiProvider();
+  const gw = document.getElementById('ai-key-gemini-wrap');
+  const ow = document.getElementById('ai-key-openai-wrap');
+  if (gw) gw.style.display = p === 'gemini' ? '' : 'none';
+  if (ow) ow.style.display = p === 'openai' ? '' : 'none';
+  const gl = document.getElementById('ai-link-gemini');
+  const ol = document.getElementById('ai-link-openai');
+  if (gl) gl.style.display = p === 'gemini' ? '' : 'none';
+  if (ol) ol.style.display = p === 'openai' ? '' : 'none';
+}
+function onAiProviderChange(){
+  const pv = document.getElementById('set-aiprovider');
+  try{ localStorage.setItem(AI_PROVIDER_KEY, pv && pv.value === 'openai' ? 'openai' : 'gemini'); }catch(e){}
+  applyAiProviderUi();
+  const st = document.getElementById('ai-key-status');
+  if (st) st.textContent = getActiveAiKey() ? ('APIキー：保存済み（この端末内のみ／使用中：' + aiSvcName() + '）') : 'APIキー：未設定（未設定だとスクショ読み取りは使えません）';
+}
+function saveAiSettings(){
+  const mn = document.getElementById('set-myname');
+  state.myName = mn ? mn.value.trim() : (state.myName || '');
+  save();
+  const pv = document.getElementById('set-aiprovider');
+  if (pv){ try{ localStorage.setItem(AI_PROVIDER_KEY, pv.value === 'openai' ? 'openai' : 'gemini'); }catch(e){} }
+  const ak = document.getElementById('set-apikey');
+  const k = ak ? ak.value.trim() : '';
+  try{ if (k) localStorage.setItem(AI_LS_KEY, k); else localStorage.removeItem(AI_LS_KEY); }catch(e){}
+  const ok = document.getElementById('set-oaikey');
+  const k2 = ok ? ok.value.trim() : '';
+  try{ if (k2) localStorage.setItem(OAI_LS_KEY, k2); else localStorage.removeItem(OAI_LS_KEY); }catch(e){}
+  renderSettings();
+  toast('AI設定を保存しました');
+}
+function backupJson(){ return JSON.stringify(state, null, 2); }
+function backupFilename(){
+  const d = nowDate();
+  return 'colorsing-backup-' + d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + '.json';
+}
+function showExportText(){
+  const ta = document.getElementById('export-text');
+  ta.value = backupJson();
+  ta.classList.add('show');
+  document.getElementById('copy-export-btn').style.display = 'block';
+  return ta;
+}
+function exportFile(){
+  showExportText();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([backupJson()], {type:'application/json'}));
+  a.download = backupFilename();
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  toast('ダウンロードを試しました。ファイルが無い場合は共有かコピーを');
+}
+async function shareBackup(){
+  const json = backupJson();
+  showExportText();
+  try{
+    const file = new File([json], backupFilename(), {type:'application/json'});
+    if (navigator.canShare && navigator.canShare({ files: [file] })){
+      await navigator.share({ files: [file], title: 'ColorSingバックアップ' });
+      toast('共有シートを開きました');
+      return;
+    }
+    if (navigator.share){
+      if (json.length > 60000){ toast('データが大きくテキスト共有では切れる可能性があります。コピーを使ってください'); return; }
+      await navigator.share({ title: 'ColorSingバックアップ', text: json });
+      toast('共有シートを開きました');
+      return;
+    }
+    toast('この表示方法では共有が使えません。コピーを使ってください');
+  }catch(e){
+    if (e && e.name === 'AbortError') return;
+    toast('共有できませんでした。コピーを使ってください');
+  }
+}
+async function copyExportText(){
+  const ta = showExportText();
+  ta.select();
+  try{
+    await navigator.clipboard.writeText(ta.value);
+    toast('コピーしました。メモ帳などに貼り付けて保存してください');
+  }catch(e){
+    let ok = false;
+    try{ ok = document.execCommand('copy'); }catch(e2){}
+    toast(ok ? 'コピーしました' : 'コピーできませんでした。テキストを長押しで全選択してコピーしてください');
+  }
+}
+function toggleExportText(){
+  const ta = document.getElementById('export-text');
+  ta.value = backupJson();
+  ta.classList.toggle('show');
+  document.getElementById('copy-export-btn').style.display = ta.classList.contains('show') ? 'block' : 'none';
+  if (ta.classList.contains('show')){ ta.select(); }
+}
+function toggleImportText(){
+  const ta = document.getElementById('import-text');
+  ta.classList.toggle('show');
+  document.getElementById('import-text-btn').style.display = ta.classList.contains('show') ? 'block' : 'none';
+}
+/* ===== Bolt版バックアップ（colorsing_backup_*.json）の変換取り込み ===== */
+function boltPtToNum(v){
+  if (typeof v === 'number') return Math.round(v) || 0;
+  const t = String(v == null ? '' : v).trim();
+  if (!t) return 0;
+  if (t.indexOf('K') >= 0 || t.indexOf('k') >= 0) return Math.round(parseFloat(t) * 1000) || 0;
+  return parseInt(t, 10) || 0;
+}
+function isBoltBackup(p){
+  if (!p || !Array.isArray(p.streamers)) return false;
+  if (p.streamers.some(s => s && (typeof s.first_period_pt !== 'undefined' || typeof s.deadline_hour !== 'undefined'))) return true;
+  if (Array.isArray(p.history) && p.history.some(h => h && typeof h.streamer_id !== 'undefined')) return true;
+  if (p.settings && Array.isArray(p.settings.ocrMyNames) && !(p.streamers[0] && p.streamers[0].cur)) return true;
+  return false;
+}
+function convertBoltBackup(p){
+  const now = nowDate();
+  const histByStreamer = {};
+  (Array.isArray(p.history) ? p.history : []).forEach(h => {
+    if (!h || typeof h.streamer_id === 'undefined') return;
+    const mk = String(h.year || now.getFullYear()) + '-' + String(h.month || 1).padStart(2, '0');
+    const pt = { jou: boltPtToNum(h.first_period_pt), chuu: boltPtToNum(h.middle_period_pt), ge: boltPtToNum(h.last_period_pt) };
+    const total = (typeof h.monthly_pt === 'number' ? h.monthly_pt : pt.jou + pt.chuu + pt.ge);
+    (histByStreamer[h.streamer_id] = histByStreamer[h.streamer_id] || []).push({
+      month: mk, pt: pt, total: total, achieved: total >= 1000, visits: {}
+    });
+  });
+  const streamers = (p.streamers || []).map(bs => {
+    let hour = parseInt(bs && bs.deadline_hour, 10);
+    if (!(hour >= 0 && hour <= 24)) hour = 23;
+    const closeTime = hour + ':00';
+    let memo = String((bs && bs.notes) || '').trim();
+    const extra = [];
+    if (bs && bs.birthday) extra.push('誕生日: ' + String(bs.birthday).slice(0, 10));
+    if (bs && bs.manual_notify_date) extra.push('通知日: ' + String(bs.manual_notify_date).slice(0, 10));
+    if (extra.length) memo = (memo ? memo + '\n' : '') + extra.join('\n');
+    const hist = (histByStreamer[bs && bs.id] || []).sort((a, b) => a.month < b.month ? -1 : 1);
+    return {
+      id: (bs && typeof bs.id === 'string' && bs.id) ? bs.id : uid(),
+      name: String((bs && bs.name) || '').trim() || '（名前なし）',
+      icon: '🎤',
+      iconImg: (bs && typeof bs.icon === 'string' && bs.icon.indexOf('data:image') === 0) ? bs.icon : '',
+      closeTime: closeTime,
+      target: 1000,
+      memo: memo,
+      links: [],
+      cur: {
+        month: effectiveMonthKey(closeTime, now),
+        pt: { jou: boltPtToNum(bs && bs.first_period_pt), chuu: boltPtToNum(bs && bs.middle_period_pt), ge: boltPtToNum(bs && bs.last_period_pt) },
+        visits: {}, ptAt: {}
+      },
+      history: hist
+    };
+  });
+  const myName = (p.settings && Array.isArray(p.settings.ocrMyNames) && p.settings.ocrMyNames[0]) ? String(p.settings.ocrMyNames[0]) : '';
+  return { streamers: streamers, sortKey: 'default', myName: myName };
+}
+function applyImport(jsonText){
+  let p;
+  try{ p = JSON.parse(jsonText); }catch(e){ toast('JSONの読み込みに失敗しました'); return; }
+  if (!p || !Array.isArray(p.streamers)){ toast('バックアップ形式が違います'); return; }
+  const bolt = isBoltBackup(p);
+  if (!confirm('現在のデータを上書きして復元します。よろしいですか？')) return;
+  state = bolt ? convertBoltBackup(p) : p;
+  rollover(); save();
+  renderList(); renderSettings();
+  toast(bolt ? 'Bolt版のバックアップを変換して復元しました' : '復元しました');
+}
+function importFromText(){
+  const v = document.getElementById('import-text').value.trim();
+  if (!v){ toast('JSONを貼り付けてください'); return; }
+  applyImport(v);
+}
+document.getElementById('import-file').addEventListener('change', function(){
+  const f = this.files && this.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => applyImport(String(r.result||''));
+  r.readAsText(f);
+  this.value = '';
+});
+document.getElementById('reg-img').addEventListener('change', function(){
+  const files = Array.prototype.slice.call(this.files || []);
+  if (!files.length) return;
+  setRegImagesFromFiles(files);
+  this.value = '';
+});
+document.getElementById('f-img').addEventListener('change', function(){
+  const f = this.files && this.files[0];
+  if (!f) return;
+  fileToScaledDataUrl(f, 1024, url => { formImgSource = url; openIconCrop(url); toast('画像を読み込みました。範囲を調整してください'); },
+    () => toast('画像を読み込めませんでした'));
+  this.value = '';
+});
+function loadFormImgFromUrl(){
+  const inp = document.getElementById('f-img-url');
+  const url = inp ? inp.value.trim() : '';
+  if (!url){ toast('画像のURLを入力してください'); return; }
+  if (!/^https:\/\//i.test(url)){ toast('https:// で始まるURLを入れてください'); return; }
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    try{
+      const max = 1024;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(img.width * scale));
+      cv.height = Math.max(1, Math.round(img.height * scale));
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      formImgSource = cv.toDataURL('image/jpeg', 0.85);
+      openIconCrop(formImgSource);
+      toast('URLから画像を読み込みました。範囲を調整してください');
+    }catch(e){
+      /* CORSでcanvas化できない場合はURLそのままを表示用に使う（範囲調整はできない） */
+      formImg = url;
+      formImgSource = '';
+      setFormImgPreview();
+      toast('URLの画像をそのまま使う形で設定しました');
+    }
+  };
+  img.onerror = () => {
+    /* 読み込み自体はブラウザ表示で試す。失敗ならプレビューが絵文字のままになる */
+    formImg = url;
+    formImgSource = '';
+    setFormImgPreview();
+    toast('URLを設定しました。プレビューで確認してください');
+  };
+  img.src = url;
+}
+/* 範囲調整のドラッグ＆ズーム操作 */
+(function(){
+  const wrap = document.getElementById('f-crop-wrap');
+  let drag = null;
+  wrap.addEventListener('pointerdown', function(e){
+    if (!cropState) return;
+    drag = { x: e.clientX, y: e.clientY, ox: cropState.ox, oy: cropState.oy };
+    try{ wrap.setPointerCapture(e.pointerId); }catch(err){}
+    e.preventDefault();
+  });
+  wrap.addEventListener('pointermove', function(e){
+    if (!drag || !cropState) return;
+    cropState.ox = drag.ox + (e.clientX - drag.x);
+    cropState.oy = drag.oy + (e.clientY - drag.y);
+    renderCrop();
+  });
+  const end = function(){ drag = null; };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+  document.getElementById('f-crop-zoom').addEventListener('input', function(){
+    if (!cropState) return;
+    cropState.z = (parseInt(this.value, 10) || 100) / 100;
+    renderCrop();
+  });
+})();
+function wipeAll(){
+  if (!confirm('全データを削除します。本当によろしいですか？')) return;
+  if (!confirm('復元できません。削除を実行しますか？')) return;
+  state = { streamers: [], sortKey: 'default', myName: '' };
+  try{ localStorage.removeItem(AI_LS_KEY); }catch(e){}
+  save();
+  detailId = null; goList(); renderList();
+  toast('全データを削除しました');
+}
+
+/* ===== 初期化 ===== */
+load();
+renderList();
+renderPt();
+setRegMode('profile');
+/* 起動スプラッシュを消す（読み込み完了時＋保険のタイマー） */
+function hideSplash(){
+  const sp = document.getElementById('splash');
+  if (!sp || sp.classList.contains('hide')) return;
+  sp.classList.add('hide');
+  setTimeout(() => { if (sp.parentNode) sp.parentNode.removeChild(sp); }, 600);
+}
+window.addEventListener('load', function(){ setTimeout(hideSplash, 350); });
+setTimeout(hideSplash, 3000);
+document.getElementById('modal-bg').addEventListener('click', function(e){ if (e.target === this) closeForm(); });
+</script>
+</body>
+</html>
