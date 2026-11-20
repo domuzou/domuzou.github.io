@@ -12,9 +12,16 @@
     color:#fdf6e3; min-height:100dvh; padding:16px 12px 20px;
     user-select:none; -webkit-user-select:none;
   }
-  .wrap{ max-width:440px; margin:0 auto; text-align:center; }
+  .wrap{ max-width:440px; margin:0 auto; text-align:center; position:relative; }
   h1{ font-size:27px; letter-spacing:.08em; }
   .sub{ font-size:13px; opacity:.85; margin-top:2px; }
+  #sndbtn{
+    position:absolute; top:0; right:2px; width:38px; height:38px;
+    font-size:18px; line-height:1; border-radius:50%; color:#fdf6e3;
+    background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.3);
+    cursor:pointer; padding:0;
+  }
+  #sndbtn:active{ transform:scale(.94); }
   .date{
     display:inline-block; margin-top:10px; font-size:17px; font-weight:700;
     background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.3);
@@ -89,6 +96,7 @@
 <div class="wrap">
   <h1>今日の占い</h1>
   <div class="sub">～7分さん占い～</div>
+  <button id="sndbtn" type="button" aria-label="効果音のオン・オフ">🔊</button>
   <div><span class="date" id="date"></span></div>
 
   <div class="scene">
@@ -206,6 +214,67 @@ function stars(n){ return '★'.repeat(n) + '☆'.repeat(5 - n); }
 function todayStr(d){
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
+/* ---- sound effects: Web Audio, synthesized, no audio files ---- */
+const SND_KEY = 'nanahun-snd-uranai';
+let actx = null;
+let sndMuted = false;
+try { sndMuted = localStorage.getItem(SND_KEY) === '1'; } catch (e) {}
+function ensureAudio(){
+  if (sndMuted) return null;
+  try {
+    if (!actx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      actx = new AC();
+    }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  } catch (e) { return null; }
+}
+function tone(freq, dur, opts){
+  const ac = ensureAudio();
+  if (!ac) return;
+  opts = opts || {};
+  const t0 = ac.currentTime + (opts.delay || 0);
+  try {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = opts.type || 'sine';
+    o.frequency.setValueAtTime(freq, t0);
+    if (opts.slideTo) o.frequency.exponentialRampToValueAtTime(opts.slideTo, t0 + dur);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(opts.vol || 0.07, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(ac.destination);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  } catch (e) {}
+}
+function sndReveal(rank){
+  if (sndMuted) return;
+  if (rank === '凶') {
+    tone(174, 0.85, { vol: 0.05 });
+    return;
+  }
+  tone(1046.5, 0.35, { vol: 0.06 });
+  tone(1318.5, 0.35, { delay: 0.07, vol: 0.06 });
+  tone(1568, 0.4, { delay: 0.14, vol: 0.06 });
+  tone(2093, 0.5, { delay: 0.21, vol: 0.055 });
+  if (rank === '大吉') {
+    tone(1568, 0.5, { delay: 0.34, type: 'triangle', vol: 0.04 });
+    tone(2637, 0.35, { delay: 0.36, vol: 0.06 });
+    tone(3135.5, 0.55, { delay: 0.45, vol: 0.06 });
+  }
+}
+function sndUpdateBtn(){ $('sndbtn').textContent = sndMuted ? '🔇' : '🔊'; }
+function toggleSound(){
+  sndMuted = !sndMuted;
+  try { localStorage.setItem(SND_KEY, sndMuted ? '1' : '0'); } catch (e) {}
+  sndUpdateBtn();
+  if (!sndMuted) { tone(1568, 0.18, { vol: 0.05 }); tone(2093, 0.28, { delay: 0.07, vol: 0.05 }); }
+  return sndMuted;
+}
+document.addEventListener('pointerdown', () => { ensureAudio(); }, { passive: true });
+$('sndbtn').addEventListener('click', toggleSound);
+sndUpdateBtn();
 const now = new Date();
 $('date').textContent = now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日（' + '日月火水木金土'[now.getDay()] + '）';
 function drawFortune(){
@@ -222,15 +291,19 @@ function renderFortune(f){
   $('color-name').textContent = f.color.name;
   $('dot').style.background = f.color.hex;
 }
-renderFortune(drawFortune());
-$('reveal').addEventListener('click', () => { $('flipper').classList.add('flipped'); $('again').classList.remove('hidden'); });
+let current = drawFortune();
+renderFortune(current);
+$('reveal').addEventListener('click', () => { sndReveal(current.rank); $('flipper').classList.add('flipped'); $('again').classList.remove('hidden'); });
 $('again').addEventListener('click', () => {
+  ensureAudio();
   $('flipper').classList.remove('flipped');
-  setTimeout(() => { renderFortune(drawFortune()); $('flipper').classList.add('flipped'); }, 420);
+  setTimeout(() => { current = drawFortune(); renderFortune(current); sndReveal(current.rank); $('flipper').classList.add('flipped'); }, 420);
 });
 window.URANAI = {
   fortuneFor: fortuneFor,
   drawFortune: drawFortune,
+  soundMuted: () => sndMuted,
+  toggleSound: toggleSound,
   POOLS: { messages: MESSAGES, items: ITEMS, colors: COLORS, ranks: RANKS }
 };
 </script>

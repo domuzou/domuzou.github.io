@@ -53,6 +53,7 @@
     <span class="chip">レベル <b id="level">1</b></span>
     <span class="chip">ベスト <b id="best">0</b></span>
     <button class="sub small" id="restart">🔁 最初から</button>
+    <button class="sub small" id="sndbtn">🔊</button>
   </div>
   <div id="msg"></div>
   <div id="fx"></div>
@@ -103,6 +104,59 @@ function curPW(){
   return PADDLE_W;
 }
 var ball = { x: W / 2, y: PADDLE_Y - BALL_R - 1, vx: 0, vy: 0, stuck: true };
+
+/* ---------- sound: Web Audio, synthesized (no audio files) ---------- */
+var SND_KEY = 'nanahun-snd-breakout';
+var sndMuted = false;
+try { sndMuted = localStorage.getItem(SND_KEY) === '1'; } catch (e) { sndMuted = false; }
+var actx = null;
+var stepSnd = { paddle: false, wall: false };
+function ensureAudio(){
+  if (actx) {
+    try { if (actx.state === 'suspended' && actx.resume) actx.resume(); } catch (e) {}
+    return actx;
+  }
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    actx = new AC();
+    if (actx.state === 'suspended' && actx.resume) actx.resume();
+  } catch (e) { actx = null; }
+  return actx;
+}
+function tone(freq, dur, opts){
+  if (sndMuted || !actx) return;
+  try {
+    opts = opts || {};
+    var t0 = actx.currentTime + (opts.delay || 0);
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = opts.type || 'sine';
+    o.frequency.setValueAtTime(freq, t0);
+    if (opts.slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(1, opts.slideTo), t0 + dur);
+    var v = opts.vol || 0.08;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(v, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  } catch (e) {}
+}
+function sndWall(){ if (stepSnd.wall) return; stepSnd.wall = true; tone(170, 0.035, { vol: 0.03 }); }
+function sndPaddle(){ if (stepSnd.paddle) return; stepSnd.paddle = true; tone(240, 0.07, { type: 'square', vol: 0.055 }); }
+function sndBrick(r){ tone(560 + (ROWS - 1 - r) * 70, 0.06, { type: 'square', vol: 0.05 }); }
+function sndBuff(){ tone(660, 0.09, { vol: 0.07 }); tone(880, 0.13, { vol: 0.07, delay: 0.07 }); }
+function sndDebuff(){ tone(220, 0.1, { type: 'sawtooth', vol: 0.055 }); tone(155, 0.15, { type: 'sawtooth', vol: 0.055, delay: 0.08 }); }
+function sndLifeLost(){ tone(392, 0.12, { type: 'triangle', vol: 0.07 }); tone(311, 0.12, { type: 'triangle', vol: 0.07, delay: 0.1 }); tone(262, 0.22, { type: 'triangle', vol: 0.07, delay: 0.2 }); }
+function sndLevelUp(){ tone(523, 0.1, { type: 'triangle', vol: 0.07 }); tone(659, 0.1, { type: 'triangle', vol: 0.07, delay: 0.07 }); tone(784, 0.16, { type: 'triangle', vol: 0.07, delay: 0.14 }); }
+function sndGameOver(){ tone(392, 0.14, { type: 'triangle', vol: 0.07 }); tone(330, 0.14, { type: 'triangle', vol: 0.07, delay: 0.13 }); tone(262, 0.14, { type: 'triangle', vol: 0.07, delay: 0.26 }); tone(196, 0.3, { type: 'triangle', vol: 0.07, delay: 0.39 }); }
+function updateSndBtn(){ var b = $('sndbtn'); if (b) b.textContent = sndMuted ? '🔇' : '🔊'; }
+function toggleSound(){
+  sndMuted = !sndMuted;
+  try { localStorage.setItem(SND_KEY, sndMuted ? '1' : '0'); } catch (e) {}
+  updateSndBtn();
+  if (!sndMuted) { ensureAudio(); tone(660, 0.08, { vol: 0.06 }); }
+  return sndMuted;
+}
 
 function $(id){ return document.getElementById(id); }
 var cv = $('cv');
@@ -159,7 +213,7 @@ function setBricksLeft(n){
   bricksLeft = Math.min(n, COLS * ROWS);
 }
 function levelUp(){
-  level++; buildBricks(); resetBall(); updateHUD();
+  level++; buildBricks(); resetBall(); updateHUD(); sndLevelUp();
   msg('レベル' + level + '！ボールが速くなったよ');
 }
 function loseLife(){
@@ -170,18 +224,18 @@ function loseLife(){
       best = score;
       try { localStorage.setItem(BEST_KEY, String(best)); } catch (e) {}
     }
-    updateHUD(); showResult();
+    updateHUD(); showResult(); sndGameOver();
   } else {
-    resetBall(); updateHUD();
+    resetBall(); updateHUD(); sndLifeLost();
     msg('あと ' + lives + ' 回！タップで再発射');
   }
 }
 function substep(h){
   var px = ball.x, py = ball.y;
   ball.x += ball.vx * h; ball.y += ball.vy * h;
-  if (ball.x < BALL_R) { ball.x = BALL_R; ball.vx = Math.abs(ball.vx); }
-  if (ball.x > W - BALL_R) { ball.x = W - BALL_R; ball.vx = -Math.abs(ball.vx); }
-  if (ball.y < BALL_R) { ball.y = BALL_R; ball.vy = Math.abs(ball.vy); }
+  if (ball.x < BALL_R) { ball.x = BALL_R; ball.vx = Math.abs(ball.vx); sndWall(); }
+  if (ball.x > W - BALL_R) { ball.x = W - BALL_R; ball.vx = -Math.abs(ball.vx); sndWall(); }
+  if (ball.y < BALL_R) { ball.y = BALL_R; ball.vy = Math.abs(ball.vy); sndWall(); }
   if (ball.y - BALL_R > H) { loseLife(); return; }
   var pwNow = curPW();
   if (ball.vy > 0 &&
@@ -192,6 +246,7 @@ function substep(h){
     var m = Math.hypot(ball.vx, ball.vy) || speed();
     ball.vx = m * Math.sin(ang); ball.vy = -m * Math.cos(ang);
     ball.y = PADDLE_Y - BALL_R - 0.5;
+    sndPaddle();
   }
   for (var i = 0; i < bricks.length; i++) {
     var b = bricks[i];
@@ -201,7 +256,7 @@ function substep(h){
     var cy = Math.max(rc.y, Math.min(rc.y + rc.h, ball.y));
     var dx = ball.x - cx, dy = ball.y - cy;
     if (dx * dx + dy * dy <= BALL_R * BALL_R) {
-      b.alive = false; bricksLeft--; score += 10;
+      b.alive = false; bricksLeft--; score += 10; sndBrick(b.r);
       var dropType = forcedDrop;
       if (!dropType && Math.random() < DROP_CHANCE) dropType = DROP_TABLE[Math.floor(Math.random() * DROP_TABLE.length)];
       if (dropType) { items.push({ type: dropType, x: rc.x + rc.w / 2, y: rc.y + rc.h / 2 }); forcedDrop = null; }
@@ -226,6 +281,7 @@ function applyItem(t){
   else if (t === 'fast') { ballMul = Math.min(1.8, ballMul * 1.3); rescaleBall(); }
   else if (t === 'slow') { ballMul = Math.max(0.5, ballMul * 0.75); rescaleBall(); }
   else if (t === 'life') { lives++; }
+  if (t === 'narrow' || t === 'fast') sndDebuff(); else sndBuff();
   msg(ITEM_TYPES[t].name);
   updateHUD();
 }
@@ -246,6 +302,7 @@ function updateItems(dt){
 function step(dt){
   if (over) return;
   timeSec += dt;
+  stepSnd.paddle = false; stepSnd.wall = false;
   updateItems(dt);
   if (ball.stuck) { ball.x = paddle.x; ball.y = PADDLE_Y - BALL_R - 1; updateHUD(); return; }
   var dist = Math.hypot(ball.vx, ball.vy) * dt;
@@ -329,12 +386,15 @@ function dragTo(clientX){
   dragPaddle((clientX - lastClientX) / r.width * W);
   lastClientX = clientX;
 }
+document.addEventListener('pointerdown', function(){ ensureAudio(); });
 document.addEventListener('pointerdown', function(e){ if (isButton(e)) return; dragOn = true; lastClientX = e.clientX; launch(); });
 document.addEventListener('pointermove', function(e){ if (isButton(e)) return; if (dragOn || e.pointerType === 'mouse') dragTo(e.clientX); });
 document.addEventListener('pointerup', function(){ dragOn = false; lastClientX = null; });
 document.addEventListener('pointercancel', function(){ dragOn = false; lastClientX = null; });
 $('again').addEventListener('click', newGame);
 $('restart').addEventListener('click', newGame);
+$('sndbtn').addEventListener('click', toggleSound);
+updateSndBtn();
 
 var last = 0;
 function loop(t){
@@ -367,6 +427,8 @@ window.BREAKOUT = {
   dragPaddle: dragPaddle,
   setBricksLeft: setBricksLeft,
   spawnItem: function(type, x, y){ items.push({ type: type, x: x, y: y }); },
+  soundMuted: function(){ return sndMuted; },
+  toggleSound: toggleSound,
   forceDrop: function(type){ forcedDrop = type; },
   stop: function(){ running = false; },
   start: function(){ running = true; }

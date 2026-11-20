@@ -46,6 +46,7 @@
   }
   button.sub{ background:rgba(119,110,101,.14); color:#776e65; border:1px solid rgba(119,110,101,.4); box-shadow:none; }
   button:active{ transform:scale(.96); }
+  button.snd{ padding:5px 11px; font-size:14px; line-height:1.2; }
   #result{ position:fixed; inset:0; background:rgba(238,228,218,.78); display:flex; align-items:center; justify-content:center; z-index:10; padding:20px; }
   #result.hidden{ display:none; }
   .card{ background:#fff; color:#776e65; border-radius:20px; padding:26px 30px; text-align:center; max-width:320px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,.25); }
@@ -62,6 +63,7 @@
   <div class="hud">
     <span class="chip">スコア <b id="score">0</b></span>
     <span class="chip">ベスト <b id="best">0</b></span>
+    <button class="sub snd" id="snd" type="button">🔊</button>
   </div>
   <div id="msg"></div>
   <div id="board"></div>
@@ -91,6 +93,65 @@ let score = 0, over = false, won = false, history = [];
 let lastSpawn = -1, lastMerged = [];
 let best = +(localStorage.getItem('nanahun-g2048-best-v1') || 0);
 const $ = id => document.getElementById(id);
+
+/* ---- sound: Web Audio synthesized effects (no audio files) ---- */
+let actx = null;
+let muted = false;
+try { muted = localStorage.getItem('nanahun-snd-g2048') === '1'; } catch (e) { muted = false; }
+function ensureAudio(){
+  if (actx){
+    if (actx.state === 'suspended' && actx.resume) actx.resume();
+    return actx;
+  }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    actx = new AC();
+    if (actx.state === 'suspended' && actx.resume) actx.resume();
+  } catch (e) { actx = null; }
+  return actx;
+}
+function tone(freq, durSec, opts){
+  opts = opts || {};
+  if (muted) return;
+  const ac = ensureAudio();
+  if (!ac) return;
+  try {
+    const t0 = ac.currentTime + (opts.delay || 0);
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    const vol = (opts.vol != null ? opts.vol : 0.08);
+    osc.type = opts.type || 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    if (opts.slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(30, opts.slideTo), t0 + durSec);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(vol, 0.0002), t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + durSec);
+    osc.connect(g);
+    g.connect(ac.destination);
+    osc.start(t0);
+    osc.stop(t0 + durSec + 0.05);
+  } catch (e) { /* no sound environment: stay silent */ }
+}
+function sndMove(){ tone(330, 0.05, { type: 'triangle', vol: 0.03 }); }
+function sndMerge(v){
+  const f = 280 * Math.pow(2, (Math.max(1, stageOf(v)) - 1) / 8);
+  tone(f, 0.13, { type: 'sine', vol: 0.09, slideTo: f * 1.5 });
+}
+function sndWin(){
+  [523, 659, 784, 1047].forEach((f, i) => tone(f, i === 3 ? 0.3 : 0.13, { type: 'triangle', vol: 0.09, delay: i * 0.09 }));
+}
+function sndOver(baseDelay){
+  [392, 330, 262].forEach((f, i) => tone(f, 0.2, { type: 'triangle', vol: 0.07, delay: (baseDelay || 0) + i * 0.17 }));
+}
+function renderSnd(){ $('snd').textContent = muted ? '🔇' : '🔊'; }
+function toggleSound(){
+  muted = !muted;
+  try { localStorage.setItem('nanahun-snd-g2048', muted ? '1' : '0'); } catch (e) {}
+  renderSnd();
+  if (!muted) tone(660, 0.07, { type: 'triangle', vol: 0.06 });
+  return muted;
+}
 
 function idx(r, c){ return r * N + c; }
 function stageOf(v){ let s = 0; while (v > 1){ v = v >> 1; s++; } return s; }
@@ -166,7 +227,12 @@ function move(dir, skipSpawn){
   if (!won && grid.some(v => v >= 2048)){ won = true; justWon = true; }
   if (score > best){ best = score; localStorage.setItem('nanahun-g2048-best-v1', String(best)); }
   over = checkOver();
+  const maxMerged = mergedIdx.reduce((m, i) => Math.max(m, grid[i]), 0);
   render();
+  if (justWon) sndWin();
+  else if (maxMerged > 0) sndMerge(maxMerged);
+  else sndMove();
+  if (over) sndOver(justWon ? 0.95 : 0.2);
   if (justWon) msg('🎉 2048到達！おめでとう！！このまま続けられるよ');
   if (over) showResult();
   return true;
@@ -237,11 +303,15 @@ document.addEventListener('keydown', e => {
   const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
   if (map[e.key]){ e.preventDefault(); move(map[e.key]); }
 });
+$('snd').addEventListener('click', toggleSound);
+document.addEventListener('pointerdown', () => { ensureAudio(); });
+renderSnd();
 $('again').addEventListener('click', newGame);
 $('restart').addEventListener('click', newGame);
 $('undo').addEventListener('click', undo);
 window.G2048 = {
   newGame: newGame, move: move, undo: undo,
+  soundMuted: function(){ return muted; }, toggleSound: toggleSound,
   setGrid: function(values){
     grid = values.slice(0, 16);
     while (grid.length < 16) grid.push(0);

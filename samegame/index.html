@@ -17,6 +17,8 @@
   .hud{ display:flex; justify-content:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
   .chip{ background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:4px 13px; font-size:13px; }
   .chip b{ font-size:15px; }
+  .chipbtn{ font:inherit; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:4px 11px; font-size:13px; color:#fff; cursor:pointer; box-shadow:none; }
+  .chipbtn:active{ transform:scale(.94); }
   #msg{ margin-top:9px; font-size:13px; min-height:20px; line-height:1.5; color:#ffe9a8; }
   #board{
     width:min(94vw, calc((100dvh - 240px) * 0.7692), 440px);
@@ -52,6 +54,7 @@
     <span class="chip">スコア <b id="score">0</b></span>
     <span class="chip">ベスト <b id="best">0</b></span>
     <span class="chip">残り <b id="left">0</b></span>
+    <button class="chipbtn" id="snd" type="button">🔊</button>
   </div>
   <div id="msg"></div>
   <div id="board"></div>
@@ -79,6 +82,63 @@ const IMGS = ['data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAw
 let grid = [], score = 0, sel = null, selKey = '', over = false, history = [];
 let best = +(localStorage.getItem('nanahun-same-best-v1') || 0);
 const $ = id => document.getElementById(id);
+
+/* ---- sound: Web Audio synthesized effects, no audio files ---- */
+const SND_KEY = 'nanahun-snd-samegame';
+let sndMuted = false;
+try { sndMuted = localStorage.getItem(SND_KEY) === '1'; } catch (e) { sndMuted = false; }
+let actx = null;
+function audio(){
+  if (sndMuted) return null;
+  try {
+    if (!actx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      actx = new AC();
+    }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  } catch (e) { return null; }
+}
+function tone(freq, dur, opts){
+  const ac = audio();
+  if (!ac) return;
+  opts = opts || {};
+  const t0 = ac.currentTime + (opts.delay || 0);
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = opts.type || 'sine';
+  o.frequency.setValueAtTime(freq, t0);
+  if (opts.slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(30, opts.slideTo), t0 + dur);
+  const v = opts.vol || 0.08;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(v, t0 + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(ac.destination);
+  o.start(t0); o.stop(t0 + dur + 0.05);
+}
+function sfxSelect(){ tone(660, 0.07, {type: 'triangle', vol: 0.06}); }
+function sfxRemove(n){
+  const base = 420 + Math.min(n, 20) * 22;
+  const notes = n >= 8 ? 3 : 2;
+  for (let i = 0; i < notes; i++) tone(base * Math.pow(1.335, i), 0.1, {type: 'triangle', vol: 0.085, delay: i * 0.055});
+  tone(base * 2, 0.16, {type: 'sine', vol: 0.05, delay: notes * 0.055});
+}
+function sfxBad(){ tone(150, 0.13, {type: 'square', vol: 0.045, slideTo: 110}); }
+function sfxUndo(){ tone(620, 0.11, {type: 'triangle', vol: 0.06, slideTo: 330}); }
+function sfxEnd(allClear){
+  const seq = allClear ? [523, 659, 784, 1047] : [523, 659, 784];
+  seq.forEach((f, i) => tone(f, 0.16, {type: 'triangle', vol: 0.08, delay: i * 0.09}));
+}
+function soundMuted(){ return sndMuted; }
+function updateSndBtn(){ const b = $('snd'); if (b) b.textContent = sndMuted ? '🔇' : '🔊'; }
+function toggleSound(){
+  sndMuted = !sndMuted;
+  try { localStorage.setItem(SND_KEY, sndMuted ? '1' : '0'); } catch (e) {}
+  updateSndBtn();
+  if (!sndMuted) sfxSelect();
+  return sndMuted;
+}
+document.addEventListener('pointerdown', () => { audio(); }, {passive: true});
 
 function newGame(){
   grid = Array.from({length: ROWS}, () => Array.from({length: COLS}, () => Math.floor(Math.random() * NT)));
@@ -111,18 +171,20 @@ function tap(r, c){
   const g = groupAt(r, c);
   if (g.length < 2){
     sel = null; selKey = ''; render();
-    if (grid[r][c] !== null) msg('1つだけじゃ消せないよ。2つ以上くっついてる顔を選んでね');
+    if (grid[r][c] !== null){ sfxBad(); msg('1つだけじゃ消せないよ。2つ以上くっついてる顔を選んでね'); }
     return;
   }
   const k = keyOf(g);
   if (sel && k === selKey) removeSel(g);
   else {
     sel = g; selKey = k; render();
+    sfxSelect();
     msg(g.length + '個選択中…もう一度タップで消すと ' + (g.length * (g.length - 1)) + '点！');
   }
 }
 function removeSel(g){
   history.push(JSON.stringify({grid: grid, score: score}));
+  sfxRemove(g.length);
   score += g.length * (g.length - 1);
   for (const [r, c] of g) grid[r][c] = null;
   for (let c = 0; c < COLS; c++){
@@ -143,6 +205,7 @@ function removeSel(g){
     if (score > best){ best = score; localStorage.setItem('nanahun-same-best-v1', String(best)); }
     render();
     showResult(left, bonus);
+    sfxEnd(left === 0);
   } else render();
 }
 function countLeft(){ let n = 0; for (const row of grid) for (const v of row) if (v !== null) n++; return n; }
@@ -162,6 +225,7 @@ function undo(){
   grid = s.grid; score = s.score; sel = null; selKey = ''; over = false;
   $('result').classList.add('hidden');
   render();
+  sfxUndo();
   msg('1手戻したよ');
 }
 function render(){
@@ -196,8 +260,11 @@ function showResult(left, bonus){
 $('again').addEventListener('click', newGame);
 $('restart').addEventListener('click', newGame);
 $('undo').addEventListener('click', undo);
+$('snd').addEventListener('click', toggleSound);
+updateSndBtn();
 window.SAME = {
   newGame: newGame, groupAt: groupAt, tap: tap, undo: undo, hasMoves: hasMoves, countLeft: countLeft,
+  soundMuted: soundMuted, toggleSound: toggleSound,
   setGrid: function(g, s){ grid = g; score = s || 0; sel = null; selKey = ''; over = false; history = []; $('result').classList.add('hidden'); render(); },
   state: function(){ return { grid: JSON.parse(JSON.stringify(grid)), score: score, over: over, sel: sel ? sel.length : 0 }; }
 };

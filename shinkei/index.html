@@ -17,6 +17,7 @@
   .hud{ display:flex; justify-content:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
   .chip{ background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:4px 13px; font-size:13px; }
   .chip b{ font-size:15px; }
+  button.sndbtn{ font:inherit; cursor:pointer; line-height:1.2; padding:4px 10px; }
   #board{
     width:min(92vw, calc((100dvh - 240px) * 0.75), 420px);
     margin:14px auto 0; display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;
@@ -73,6 +74,7 @@
     <span class="chip">タイム <b id="time">0:00</b></span>
     <span class="chip">そろった数 <b id="pairs">0/8</b></span>
     <span class="chip">ベスト <b id="best">―</b></span>
+    <button class="chip sndbtn" id="snd" type="button" aria-label="サウンド切替">🔊</button>
   </div>
   <div id="board"></div>
   <div class="btns">
@@ -105,6 +107,53 @@ let started = false, startAt = 0, elapsedMs = 0, timerId = null, resolveId = nul
 let best = null;
 try { best = JSON.parse(localStorage.getItem('nanahun-shinkei-best-v1') || 'null'); } catch (e) { best = null; }
 const $ = id => document.getElementById(id);
+
+/* ---- sound: Web Audio, synthesized, lazily created on first gesture ---- */
+let actx = null;
+let sndMuted = false;
+try { sndMuted = localStorage.getItem('nanahun-snd-shinkei') === '1'; } catch (e) { sndMuted = false; }
+function ensureAudio(){
+  if (actx){ if (actx.state === 'suspended') actx.resume(); return; }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+  } catch (e) { actx = null; }
+}
+document.addEventListener('pointerdown', ensureAudio);
+function tone(freq, dur, opts){
+  if (sndMuted || !actx) return;
+  opts = opts || {};
+  try {
+    const t0 = actx.currentTime + (opts.delay || 0);
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = opts.type || 'sine';
+    o.frequency.setValueAtTime(freq, t0);
+    if (opts.slideTo) o.frequency.exponentialRampToValueAtTime(opts.slideTo, t0 + dur);
+    const v = opts.vol || 0.08;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(v, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g);
+    g.connect(actx.destination);
+    o.start(t0);
+    o.stop(t0 + dur + 0.05);
+  } catch (e) {}
+}
+function sndFlip(){ tone(620, 0.07, { type: 'triangle', vol: 0.06 }); }
+function sndMatch(){ tone(659.25, 0.12, {}); tone(880, 0.22, { delay: 0.09 }); }
+function sndMismatch(){ tone(196, 0.16, { type: 'sawtooth', vol: 0.04 }); }
+function sndClear(){ [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.24, { delay: i * 0.11 })); }
+function soundMuted(){ return sndMuted; }
+function updateSndBtn(){ const b = $('snd'); if (b) b.textContent = sndMuted ? '🔇' : '🔊'; }
+function toggleSound(){
+  sndMuted = !sndMuted;
+  try { localStorage.setItem('nanahun-snd-shinkei', sndMuted ? '1' : '0'); } catch (e) {}
+  updateSndBtn();
+  if (!sndMuted){ ensureAudio(); tone(880, 0.09, {}); }
+  return sndMuted;
+}
 
 function shuffle(a){
   for (let i = a.length - 1; i > 0; i--){
@@ -149,6 +198,7 @@ function flip(i){
   if (openFlags[i] || matchedFlags[i]) return;
   if (!started) startTimer();
   openFlags[i] = true;
+  sndFlip();
   openIdx.push(i);
   if (openIdx.length === 2){
     moves++;
@@ -161,10 +211,12 @@ function flip(i){
         cleared = true;
         stopTimer();
         saveBest();
+        sndClear();
         render();
         showResult();
         return;
       }
+      sndMatch();
     } else {
       lock = true;
       resolveId = setTimeout(forceResolve, 700);
@@ -178,6 +230,7 @@ function forceResolve(){
     openFlags[openIdx[0]] = false;
     openFlags[openIdx[1]] = false;
     openIdx = [];
+    sndMismatch();
   }
   lock = false;
   render();
@@ -226,11 +279,15 @@ function render(){
 }
 $('again').addEventListener('click', newGame);
 $('restart').addEventListener('click', newGame);
+$('snd').addEventListener('click', toggleSound);
+updateSndBtn();
 window.SHINKEI = {
   newGame: newGame,
   setLayout: function(arr){ setup(arr.slice()); },
   flip: flip,
   forceResolve: forceResolve,
+  soundMuted: soundMuted,
+  toggleSound: toggleSound,
   state: function(){
     return {
       cards: types.map((t, i) => ({ type: t, open: openFlags[i], matched: matchedFlags[i] })),

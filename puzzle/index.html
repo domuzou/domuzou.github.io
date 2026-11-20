@@ -9,7 +9,7 @@
 :root{--bg:#171a26;--panel:#232840;--line:#3c4266;--txt:#f2f3fa;--sub:#a7abc4;--accent:#ffb703;--accent2:#4db2ff}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--txt);font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;padding:12px;max-width:480px;margin:0 auto;user-select:none;-webkit-user-select:none}
-header{text-align:center;margin:6px 0 10px}
+header{text-align:center;margin:6px 0 10px;position:relative}
 header h1{font-size:21px;margin:0}
 header h1 .ver{font-size:11px;color:var(--sub);margin-left:6px}
 button{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:14px;cursor:pointer}
@@ -41,10 +41,11 @@ body.show-num .tile .num{display:block}
 .controls button{flex:1;min-width:100px}
 .controls label{display:flex;align-items:center;gap:5px;font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .note{font-size:12px;color:var(--sub);line-height:1.6;margin-top:10px}
+#btn-sound{position:absolute;right:0;top:-2px;padding:5px 9px;font-size:15px;line-height:1}
 </style>
 </head>
 <body>
-<header><h1 style="font-size:18px">🖼️ 世界名画コレクション<span class="ver">v1.2</span><br><span style="font-size:14px;font-weight:600">～パズルで見る7分さん～</span></h1></header>
+<header><h1 style="font-size:18px">🖼️ 世界名画コレクション<span class="ver">v1.2</span><br><span style="font-size:14px;font-weight:600">～パズルで見る7分さん～</span></h1><button id="btn-sound" aria-label="効果音のオン・オフ">🔊</button></header>
 
 <div id="screen-select">
   <div id="stage-grid"></div>
@@ -90,6 +91,60 @@ const IMAGES = ["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAcFBQYF
 const COLS = 3, ROWS = 4, N = COLS * ROWS, BLANK = N - 1;
 const REC_KEY = "slide_puzzle_records_v2";
 const STAGE_SEEDS = [101, 202, 303, 404, 505, 606, 707, 808]; // 面ごとの基準（毎回ランダムにずらす）
+
+/* ---- 効果音（Web Audioで合成・ファイルなし） ---- */
+const SND_KEY = "nanahun-snd-puzzle";
+let actx = null;
+let sndMuted = false;
+try{ sndMuted = localStorage.getItem(SND_KEY) === "1"; }catch(e){}
+function ensureAudio(){
+  if(actx){ if(actx.state === "suspended"){ try{ actx.resume(); }catch(e){} } return actx; }
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    actx = new AC();
+  }catch(e){ actx = null; }
+  return actx;
+}
+document.addEventListener("pointerdown", () => { ensureAudio(); }, {passive: true});
+function tone(freq, dur, opts){
+  opts = opts || {};
+  if(sndMuted || !actx) return;
+  try{
+    const t0 = actx.currentTime + (opts.delay || 0);
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    const vol = opts.vol != null ? opts.vol : 0.08;
+    o.type = opts.type || "sine";
+    o.frequency.setValueAtTime(freq, t0);
+    if(opts.slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(30, opts.slideTo), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  }catch(e){}
+}
+function sndSlide(){ tone(210, 0.055, {type: "triangle", vol: 0.07, slideTo: 130}); }
+function sndTick(){ tone(880, 0.05, {type: "sine", vol: 0.05}); }
+function sndFanfare(){
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.16, {type: "triangle", vol: 0.09, delay: i * 0.09}));
+}
+function sndAllClear(){
+  [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.5].forEach((f, i) =>
+    tone(f, i === 6 ? 0.34 : 0.15, {type: "triangle", vol: 0.09, delay: i * 0.1}));
+}
+function updateSndBtn(){
+  const b = document.getElementById("btn-sound");
+  if(b) b.textContent = sndMuted ? "🔇" : "🔊";
+}
+function toggleSound(){
+  sndMuted = !sndMuted;
+  try{ localStorage.setItem(SND_KEY, sndMuted ? "1" : "0"); }catch(e){}
+  updateSndBtn();
+  if(!sndMuted){ ensureAudio(); sndTick(); }
+  return sndMuted;
+}
 
 let stage = 0; // 0始まり
 let cells = [], moves = 0, startedAt = null, elapsed = 0, timerId = null, cleared = false;
@@ -161,7 +216,7 @@ function renderSelect(){
     card.innerHTML = '<img src="' + src + '" alt="">' +
       '<div class="sname">' + (i + 1) + "面" + (rec ? " ✅" : "") + "</div>" +
       '<div class="stime">' + (rec ? "ベスト <b>" + fmtTime(rec.ms) + "</b>（" + rec.moves + "手）" : "未クリア") + "</div>";
-    card.addEventListener("click", () => startStage(i));
+    card.addEventListener("click", () => { sndTick(); startStage(i); });
     grid.appendChild(card);
   });
   const sum = document.getElementById("summary");
@@ -259,6 +314,7 @@ function onTileTap(tileId){
   }
   moves += slid;
   render();
+  sndSlide();
   if(isSolved()) onClear();
 }
 function onClear(){
@@ -281,6 +337,7 @@ function onClear(){
     : "クリア済み " + st.clearedCount + " / " + IMAGES.length + " 面";
   document.getElementById("btn-next-stage").style.display = stage < IMAGES.length - 1 ? "" : "none";
   document.getElementById("clear-panel").style.display = "flex";
+  if(st.total != null) sndAllClear(); else sndFanfare();
   render();
 }
 function copyText(txt){
@@ -303,6 +360,8 @@ function shareAll(){
   const lines = st.perStage.map((ms, i) => (i + 1) + "面 " + fmtTime(ms)).join(" ／ ");
   shareText("🖼️ 世界名画コレクション～パズルで見る7分さん～ 全" + IMAGES.length + "面クリア！ 合計 " + fmtTime(st.total) + " ／ 平均 " + fmtTime(Math.round(st.average)) + "\n" + lines);
 }
+document.getElementById("btn-sound").addEventListener("click", toggleSound);
+updateSndBtn();
 document.getElementById("btn-next-stage").addEventListener("click", () => { if(stage < IMAGES.length - 1) startStage(stage + 1); });
 document.getElementById("btn-again").addEventListener("click", resetAttempt);
 document.getElementById("btn-reset").addEventListener("click", resetAttempt);
@@ -341,7 +400,9 @@ window.PZ = {
   tap: onTileTap,
   isSolved: isSolved,
   stats: stats,
-  loadRecords: loadRecords
+  loadRecords: loadRecords,
+  soundMuted: () => sndMuted,
+  toggleSound: toggleSound
 };
 </script>
 </body>
