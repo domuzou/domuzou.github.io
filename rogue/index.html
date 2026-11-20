@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ななふんダンジョン ～ドット絵の迷宮～</title>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body{
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+    background:linear-gradient(180deg,#1b1626,#100d18); color:#efeaf6;
+    min-height:100dvh; padding:8px 10px 18px; user-select:none; -webkit-user-select:none;
+  }
+  .wrap{ max-width:480px; margin:0 auto; text-align:center; }
+  h1{ font-size:21px; letter-spacing:.04em; }
+  h1 .sub{ font-size:12px; font-weight:400; opacity:.75; margin-left:6px; }
+  .hud{ display:flex; justify-content:center; gap:6px; margin-top:8px; flex-wrap:wrap; align-items:center; }
+  .chip{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); border-radius:999px; padding:3px 11px; font-size:12.5px; }
+  .chip b{ font-size:15px; }
+  .bar-row{ display:flex; align-items:center; gap:7px; margin-top:6px; font-size:12px; max-width:392px; margin-left:auto; margin-right:auto; }
+  .bar-row .lbl{ width:30px; text-align:right; opacity:.85; }
+  .bar{ flex:1; height:11px; background:rgba(255,255,255,.12); border-radius:99px; overflow:hidden; }
+  .bar > div{ height:100%; border-radius:99px; transition:width .15s; }
+  #hpfill{ background:linear-gradient(90deg,#ff5d73,#ff8f5d); width:100%; }
+  #hgfill{ background:linear-gradient(90deg,#ffc93f,#ffe95d); width:100%; }
+  .bar-row b{ width:66px; text-align:left; font-size:12.5px; }
+  #cv{
+    width:min(94vw, 392px); aspect-ratio:392/280; display:block; margin:9px auto 0;
+    background:#0c0a11; border:3px solid #4a4258; border-radius:12px;
+    box-shadow:0 4px 16px rgba(0,0,0,.5); image-rendering:pixelated;
+  }
+  #log{
+    margin:8px auto 0; max-width:392px; min-height:76px; text-align:left;
+    font-size:12.5px; line-height:1.45; background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:6px 10px; color:#d9d2e8;
+  }
+  #log div{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .controls{ display:flex; gap:12px; justify-content:center; align-items:flex-start; margin-top:10px; }
+  .dpad{ display:grid; grid-template-columns:repeat(3,54px); grid-template-rows:repeat(3,54px); gap:5px; }
+  .dpad button{ font-size:20px; padding:0; border-radius:14px; }
+  button{
+    font:inherit; font-size:14px; font-weight:700; color:#fff;
+    background:#5b4a8a; border:none; border-radius:12px; padding:10px 12px; cursor:pointer;
+    box-shadow:0 3px 8px rgba(0,0,0,.35);
+  }
+  button:active{ transform:scale(.95); }
+  button.sub{ background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.25); box-shadow:none; }
+  button.small{ font-size:12px; padding:5px 12px; border-radius:999px; }
+  button:disabled{ opacity:.38; }
+  .actions{ display:flex; flex-direction:column; gap:7px; flex:1; max-width:196px; }
+  .actions button{ width:100%; }
+  #btn-descend{ background:#b97f2c; }
+  .hidden{ display:none !important; }
+  .howto{ margin:12px auto 0; max-width:392px; font-size:11.5px; line-height:1.6; opacity:.75; text-align:left; }
+  footer{ margin-top:10px; font-size:11px; opacity:.6; line-height:1.6; }
+  #result{ position:fixed; inset:0; background:rgba(8,5,14,.78); display:flex; align-items:center; justify-content:center; z-index:10; padding:20px; }
+  #result.hidden{ display:none; }
+  .card{ background:#241f31; color:#efeaf6; border:1px solid rgba(255,255,255,.2); border-radius:20px; padding:26px 30px; text-align:center; max-width:320px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,.5); }
+  .card h2{ font-size:21px; margin-bottom:8px; }
+  .card p{ font-size:14px; line-height:1.7; }
+  .card .big{ font-size:30px; font-weight:800; color:#ffb703; }
+  .card button{ margin-top:14px; background:#b97f2c; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⚔️ ななふんダンジョン<span class="sub">～ドット絵の迷宮～</span></h1>
+  <div class="hud">
+    <span class="chip">🏯 <b id="depth">1</b>階</span>
+    <span class="chip">Lv <b id="lv">1</b></span>
+    <span class="chip">⚔️攻撃 <b id="atk">5</b></span>
+    <span class="chip">🏆ベスト <b id="best">-</b></span>
+    <button class="sub small" id="snd">🔊</button>
+  </div>
+  <div class="bar-row"><span class="lbl">HP</span><div class="bar"><div id="hpfill"></div></div><b id="hptext">25/25</b></div>
+  <div class="bar-row"><span class="lbl">満腹</span><div class="bar"><div id="hgfill"></div></div><b id="hgtext">100</b></div>
+  <canvas id="cv" width="392" height="280"></canvas>
+  <div id="log"></div>
+  <div class="controls">
+    <div class="dpad">
+      <button data-dx="-1" data-dy="-1">↖</button>
+      <button data-dx="0" data-dy="-1">↑</button>
+      <button data-dx="1" data-dy="-1">↗</button>
+      <button data-dx="-1" data-dy="0">←</button>
+      <button data-dx="0" data-dy="0">⏳</button>
+      <button data-dx="1" data-dy="0">→</button>
+      <button data-dx="-1" data-dy="1">↙</button>
+      <button data-dx="0" data-dy="1">↓</button>
+      <button data-dx="1" data-dy="1">↘</button>
+    </div>
+    <div class="actions">
+      <button id="btn-bread">🍞 パンを食べる（<b id="n-bread">0</b>）</button>
+      <button id="btn-herb">🌿 薬草を使う（<b id="n-herb">0</b>）</button>
+      <button id="btn-fruit">💪 ちからの実（<b id="n-fruit">0</b>）</button>
+      <button id="btn-descend" class="hidden">🪜 階段を降りる</button>
+      <button id="btn-restart" class="sub">🔁 最初から</button>
+    </div>
+  </div>
+  <p class="howto">遊び方：十字キーで8方向に移動（真ん中は待機）。敵にぶつかると攻撃！ 1回動くごとに敵も1回動くターン制だよ。🍞パンは満腹度+50、🌿薬草はHP+15、💪ちからの実は攻撃力+1。お腹が空くとHPが減るから気をつけて。階段に乗ると「降りる」ボタンが出るよ。キーボード（矢印/WASD/QEZC）でも遊べるよ。</p>
+  <footer>タイル・モンスター素材: Kenney "Tiny Dungeon" (CC0)<br>主人公ドット絵: 7分さんのイラストをもとに作成</footer>
+</div>
+<div id="result" class="hidden">
+  <div class="card">
+    <h2>💀 ゲームオーバー</h2>
+    <p id="death-reason"></p>
+    <p><span class="big" id="final-depth">1</span> 階まで進んだ</p>
+    <p id="final-stats"></p>
+    <button id="btn-again">⚔️ もう一度挑戦</button>
+  </div>
+</div>
+<script>
+'use strict';
+const ASSETS = {"sheet": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGgAAAAoCAYAAAASRL/NAAAFNElEQVR4nO1aTWhjRRz/zSLI6h5cEExSJKYPmsBCaaEnW2gLIkvF4+Ih0CLsUvDgUQQPSQ6CeBE8CEsFsVBQPHqRZXFTaDwVDEFhW0jS4jYvB2H30A88jYf0/zpv3te8j3kv1fwuL3nz5j+/+X/Nf+Y9IAKerszypyuzPEpfXRg3TknxYaqDRRFeaXaY3J/uxYUqp6TGi8vDC0H8Asnr8MqwStOthDjQze2lOMJ1Y5xSVla4kcWgKoqfGGeEwAj6oPoo1gA/7rwbq78bQnNq5hLnQIirnyBuloFyhWlunnQBAPkpA8NBjwHAiz/24xHQgHHi5Mfln58+BgC8fO/ryPIZMDLOGw9+BQC060UAV0aiVFP+7ptQgg8+/Mi3PWhxVElxQZyIQ9pFQvuvv12fnXvzdce9wCJBjJy5+jHm6sdo14swT7rITxm2wfOL69Zvs7UN1ba0QVyaM7cy5ZEErBRHhvkvwYqw0lK2RGLAquLIOBRF1x2UFa47bgwHPZafMmw32/WirVAQ4TfxcVGK2doGjlo4rG7isLqZNZ1YcJTZfmmOJm62tnFY3cTy0QV237qJmZ2HtrY0EFQgsNKS1iOetGBNwqvMFsH7e7ai4bC6iZmdh06hgnLcqhyVqsqripP7ypxUDKMyV1Vor+Lox3DQYzhqccCqwrg8WfpPSlk+ugAW162o0e214mTOtpwVptnaBu/v8fPHG9b9V975Ho7nTrrWOntpKB7VUJVmh4lcXn3QZT8YBU/nkp8Nkm9LcaKCeX+PkyHOH2/AqI3kdhtXMskw1J4rTPNug1lKcdsLJbEnoUkaNQ7U1tFtMKXUKhtH3vMF9ee/LzsUz+Z3bf3Otgz+8xcXvrwteUL0ezl34FEPKy2xsy2DdxsMRo3DqHF0seHwTLmPRUKaFMfovzyxtCGutbTn8zOSm3Ho/vn+Mw0MR9B2mu01oSgof3V7JBNXMs/3nyGM04ho14uOKBpXaH/dcPzJCwBA8VF7dKO9otSv0uwwMnJUGSIovQH2TXnYtScJLmGg3UDFL18b/YgxkSRkDAc9xhizVXBZcSGoFFWB74PkMva6gZWWmKgIcWMet8ROCrnCNCfkCtM2fceOoPziuq2yM2ocZ1sGZ/O7zGsdyrpAoE11EsZh87tMrs7e//SmUl+KZrdDauLmaSDR62QCImihpqtM/u3P/nT05f3njj2WKweP/r99fofJnkYltwqi7Ne8uAB3wopygIoWNyPFjiAv4ySJ1v3nAIDFb29b98wnaq8SWFkLpUTh9yZByZNkb1UBhaib15HCo548DH6B/RShNOv5LCsn97LOK5r5wei4J796anMcpf9CwSKW/rQ+KkWQm7fmV099n/Hy3LjGyRoyfzKOG8wnt2xGoSs5jej4FEX5KQOscbU2KinJjQQrd6x1YDjoMfmZJD1XhhxBhbtwjJ8GD4KfkfxAOpTLfrG6jPzZFT+Y5cNBj7kZh9qjyv4/4XJ/5ln6KxuIUpqc2lTb08A4cBBh9jsw+x2lZ8lQcumvXMXJ+TRsexoYBw4iCndxuU4hcjYJFUGkgCjtaSBLDroyjLKB5EokbHsayJKDrgwzWYMSHFtHhgkVQZM1yH9s8Rq23QuTNSjBscVr2HYvRF6DxPLR7Hcma5CmDKN8FicLzq+eWhuqoPakIZ8NDgc9ljYHmY8u/SiTD/r+LMr3aXFA48lfIqXJwY2P19jaua0tVDh9irW2UHFsvILak8baQsUxTtocwowdlVuo90Hv3bsfqz0NZMlBh37+Bb/9plqiwmFtAAAAAElFTkSuQmCC", "floor": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQAgMAAABinRfyAAAABGdBTUEAALGPC/xhBQAAAAlQTFRF/smcz4JU6qVszCBWUwAAACRJREFUCNdjWAUEDGCiCUwsg3FXgiWWwolV6EQWjNUF5naBuQCFaSmi6lH99AAAAABJRU5ErkJggg==", "floor2": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAB1JREFUOI1jfLU05z8DBYCJEs2jBowaMGrAYDIAAFXwAxr14JwoAAAAAElFTkSuQmCC", "wall": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQAgMAAABinRfyAAAABGdBTUEAALGPC/xhBQAAAAlQTFRFwMvcUmB8i5u0Ok/JaAAAACJJREFUCNdjCAUChlXLGGYBiVVQAizGCRRkWAnkQwgi1QEA9oIgs6OaBGAAAAAASUVORK5CYII=", "stairs": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAWElEQVR4nGNgGHCgpmbw//qdF3BMqn4WBgYGhumzlpDtACaydeICpHqJBZsgKV6ivhfQASEvYfUCOsDnJYq9wEiqBjU1g/8bt+2A84nyAjpA9hLtY4HmAABC+C/jw/qU2AAAAABJRU5ErkJggg==", "monsters": {"slime": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAABGdBTUEAALGPC/xhBQAAAA9QTFRFAAAAaf/UJZVqQ+GzPyYxGHw1NQAAAAF0Uk5TAEDm2GYAAABMSURBVAjXbY3BDcAwCAPzYAFmYAPwAJXs/WdqIH20Uv06WWdY6ycmXQPaOYX7VEZ3HKgaEAm0pCBS7UZVbtsYYOIN6lUfMlU9P765AeEkDwN2VLJrAAAAAElFTkSuQmCC", "bat": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAABGdBTUEAALGPC/xhBQAAABJQTFRFAAAA////djs26qVsvWxKPyYx6WRJ7QAAAAF0Uk5TAEDm2GYAAABPSURBVAjXY2DAAlhDQwNAdCgYgPmmwSCx0JBQZ5NQ11CGUBcnY2MVFzBD2BDCMDE2dgYzXI2NQ0AMU1MXl+DgUJAxIO2hIHNAIADJCnQAAJTgF8d0GdQlAAAAAElFTkSuQmCC", "snake": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAABGdBTUEAALGPC/xhBQAAAA9QTFRFAAAAwMvc6qVsvWxKPyYxaqQ8bwAAAAF0Uk5TAEDm2GYAAABYSURBVAjXPY3BDcAwCAN5ZIROQDJBzQBVcvvPVKBSXz5hozOzAY9ZJxSAe50GDiuBzdexqmq43WeOmLc0I+FIKLtxFJ6fCSAVXBcRQTukKNvYitb+Vut8AR9xFXg+RlAJAAAAAElFTkSuQmCC", "ghost": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQAgMAAABinRfyAAAABGdBTUEAALGPC/xhBQAAAAxQTFRFAAAAi5u0wMvcPyYxKaGK/AAAAAF0Uk5TAEDm2GYAAABPSURBVAjXY2AAg///GRiY//8/wMB/a/kHBv6slUBi1SogsX4flLBfteoPw//Vv/4z/F796z3Dr+yd6xl+Za0EEq9Wr2f49zV8P4P9q/V/AJcrKOLbimK6AAAAAElFTkSuQmCC", "ogre": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAABGdBTUEAALGPC/xhBQAAABhQTFRFAAAAJitEdjs2////4ZplvWxK98KCPyYxLIt81AAAAAF0Uk5TAEDm2GYAAABhSURBVAjXJcuxDYAwEAPA7xggG1DAIigLoCc9kE8bISVen3fi6mTZIgKPeBaiOtDMEiucZnnAPBPHESeeMJv4hBd8d46roKvqVeCTDPAGi6u9A/3eCqGf6q5sWmqJDQjgByPAK1mAzG9+AAAAAElFTkSuQmCC", "demon": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAABGdBTUEAALGPC/xhBQAAABVQTFRFAAAAvWxKdjs298KC/3Bt6EU3PyYx+VGpDwAAAAF0Uk5TAEDm2GYAAABiSURBVAjXPY3BDYAwCEU5uUA3qC5QmziAKRsUzk0Mf/8RBEzk9OB9gAhZRNsHi2CYDAVBefI0B9hk9RDMRDTVXeuRau/9TFWeq6VCKwg1fMVGgAASIPFBIhwTD/9P/dDyhl4G/yqjkvUB4wAAAABJRU5ErkJggg=="}};
+const $ = id => document.getElementById(id);
+
+/* ---- sound: Web Audio synthesized effects, no audio files ---- */
+const SND_KEY = 'nanahun-snd-rogue';
+let sndMuted = false;
+try { sndMuted = localStorage.getItem(SND_KEY) === '1'; } catch (e) { sndMuted = false; }
+let actx = null;
+function audio(){
+  if (sndMuted) return null;
+  try {
+    if (!actx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      actx = new AC();
+    }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  } catch (e) { return null; }
+}
+function tone(freq, dur, opts){
+  const ac = audio();
+  if (!ac) return;
+  opts = opts || {};
+  const t0 = ac.currentTime + (opts.delay || 0);
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = opts.type || 'sine';
+  o.frequency.setValueAtTime(freq, t0);
+  if (opts.slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(30, opts.slideTo), t0 + dur);
+  const v = opts.vol || 0.08;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(v, t0 + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(ac.destination);
+  o.start(t0); o.stop(t0 + dur + 0.05);
+}
+function sfxTick(){ tone(920, 0.03, {type: 'square', vol: 0.03}); }
+function sfxStep(){ tone(520, 0.04, {type: 'triangle', vol: 0.035}); }
+function sfxSwing(){ tone(320, 0.08, {type: 'square', vol: 0.05, slideTo: 130}); }
+function sfxHit(){ tone(150, 0.16, {type: 'sawtooth', vol: 0.06, slideTo: 75}); }
+function sfxDefeat(){ tone(660, 0.08, {type: 'triangle', vol: 0.08}); tone(990, 0.13, {type: 'triangle', vol: 0.08, delay: 0.06}); }
+function sfxPickup(){ tone(880, 0.08, {type: 'triangle', vol: 0.08}); tone(1318, 0.13, {type: 'triangle', vol: 0.08, delay: 0.07}); }
+function sfxEat(){ tone(440, 0.08, {type: 'triangle', vol: 0.08}); tone(587, 0.11, {type: 'triangle', vol: 0.08, delay: 0.08}); }
+function sfxDescend(){ tone(700, 0.35, {type: 'sine', vol: 0.08, slideTo: 175}); }
+function sfxLevel(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.15, {type: 'triangle', vol: 0.085, delay: i * 0.09})); }
+function sfxOver(){ [392, 330, 262, 196].forEach((f, i) => tone(f, 0.24, {type: 'triangle', vol: 0.08, delay: i * 0.16})); }
+function soundMuted(){ return sndMuted; }
+function updateSndBtn(){ const b = $('snd'); if (b) b.textContent = sndMuted ? '🔇' : '🔊'; }
+function toggleSound(){
+  sndMuted = !sndMuted;
+  try { localStorage.setItem(SND_KEY, sndMuted ? '1' : '0'); } catch (e) {}
+  updateSndBtn();
+  if (!sndMuted) sfxTick();
+  return sndMuted;
+}
+document.addEventListener('pointerdown', () => { audio(); }, {passive: true});
+
+/* ---- seeded RNG ---- */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+let rng = mulberry32(12345);
+function ri(a, b){ return a + Math.floor(rng() * (b - a + 1)); }
+function pick(arr){ return arr[Math.floor(rng() * arr.length)]; }
+
+/* ---- constants & data ---- */
+const MW = 28, MH = 20;            /* map size in tiles */
+const TILE = 28, VW = 14, VH = 10; /* canvas viewport in tiles */
+const ETYPES = [
+  {key: 'slime', name: 'スライム', hp: 8,  atk: 3, exp: 3,  minD: 1},
+  {key: 'bat',   name: 'コウモリ', hp: 6,  atk: 4, exp: 4,  minD: 1},
+  {key: 'snake', name: 'スネーク', hp: 11, atk: 5, exp: 6,  minD: 2},
+  {key: 'ghost', name: 'ゴースト', hp: 13, atk: 6, exp: 9,  minD: 3},
+  {key: 'ogre',  name: 'オーガ',   hp: 19, atk: 7, exp: 13, minD: 4},
+  {key: 'demon', name: 'デーモン', hp: 24, atk: 9, exp: 19, minD: 6}
+];
+const ET = {};
+ETYPES.forEach(t => { ET[t.key] = t; });
+const ITEM_INFO = {
+  bread: {emoji: '🍞', name: 'パン'},
+  herb:  {emoji: '🌿', name: '薬草'},
+  fruit: {emoji: '💪', name: 'ちからの実'}
+};
+const DIRS8 = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+
+/* ---- state ---- */
+let G = null;
+
+function tileAt(x, y){
+  if (!G || x < 0 || y < 0 || x >= MW || y >= MH) return 0;
+  return G.map[y][x];
+}
+function enemyAt(x, y){
+  return G.enemies.find(e => e.hp > 0 && e.x === x && e.y === y) || null;
+}
+function roomAt(x, y){
+  return G.rooms.find(r => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) || null;
+}
+function log(msg){
+  G.log.push(msg);
+  if (G.log.length > 40) G.log.shift();
+}
+
+function carveH(x1, x2, y){
+  const a = Math.min(x1, x2), b = Math.max(x1, x2);
+  for (let x = a; x <= b; x++) G.map[y][x] = 1;
+}
+function carveV(y1, y2, x){
+  const a = Math.min(y1, y2), b = Math.max(y1, y2);
+  for (let y = a; y <= b; y++) G.map[y][x] = 1;
+}
+function freeTile(minDistFromPlayer, tries){
+  const p = G.player;
+  for (let i = 0; i < (tries || 200); i++){
+    const x = ri(0, MW - 1), y = ri(0, MH - 1);
+    if (tileAt(x, y) !== 1) continue;
+    if (x === p.x && y === p.y) continue;
+    if (Math.max(Math.abs(x - p.x), Math.abs(y - p.y)) < minDistFromPlayer) continue;
+    if (x === G.stairs.x && y === G.stairs.y) continue;
+    if (enemyAt(x, y)) continue;
+    if (G.items.some(it => it.x === x && it.y === y)) continue;
+    return {x, y};
+  }
+  return null;
+}
+
+function genFloor(){
+  G.map = [];
+  for (let y = 0; y < MH; y++) G.map.push(new Array(MW).fill(0));
+  const rooms = [];
+  let tries = 0;
+  while (rooms.length < 7 && tries < 400){
+    tries++;
+    const w = ri(4, 8), h = ri(3, 6);
+    const x = ri(1, MW - 2 - w), y = ri(1, MH - 2 - h);
+    if (rooms.some(r => x < r.x + r.w + 1 && x + w + 1 > r.x && y < r.y + r.h + 1 && y + h + 1 > r.y)) continue;
+    rooms.push({x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1)});
+  }
+  if (rooms.length < 2){
+    rooms.length = 0;
+    rooms.push({x: 2, y: 2, w: 6, h: 5, cx: 5, cy: 4});
+    rooms.push({x: 20, y: 13, w: 6, h: 5, cx: 23, cy: 15});
+  }
+  G.rooms = rooms;
+  rooms.forEach(r => {
+    for (let y = r.y; y < r.y + r.h; y++)
+      for (let x = r.x; x < r.x + r.w; x++) G.map[y][x] = 1;
+  });
+  for (let i = 1; i < rooms.length; i++){
+    const a = rooms[i - 1], b = rooms[i];
+    if (rng() < 0.5){ carveH(a.cx, b.cx, a.cy); carveV(a.cy, b.cy, b.cx); }
+    else { carveV(a.cy, b.cy, a.cx); carveH(a.cx, b.cx, b.cy); }
+  }
+  const p = G.player;
+  p.x = rooms[0].cx; p.y = rooms[0].cy;
+  const last = rooms[rooms.length - 1];
+  G.stairs = {x: last.cx, y: last.cy};
+  G.enemies = [];
+  G.items = [];
+  const nE = Math.min(5 + G.depth + ri(0, 2), 14);
+  const pool = ETYPES.filter(t => t.minD <= G.depth);
+  for (let i = 0; i < nE; i++){
+    const pos = freeTile(4);
+    if (!pos) break;
+    const t = pick(pool);
+    const hp = t.hp + (G.depth - 1) * 2 + ri(0, 3);
+    G.enemies.push({
+      x: pos.x, y: pos.y, key: t.key, name: t.name,
+      hp, maxHp: hp, atk: t.atk + Math.floor((G.depth - 1) / 2), exp: t.exp + G.depth
+    });
+  }
+  const nI = ri(3, 5);
+  for (let i = 0; i < nI; i++){
+    const pos = freeTile(1);
+    if (!pos) break;
+    const r = rng();
+    const kind = r < 0.45 ? 'bread' : (r < 0.8 ? 'herb' : 'fruit');
+    G.items.push({x: pos.x, y: pos.y, kind});
+  }
+}
+
+function newGame(seed){
+  rng = mulberry32((seed == null ? (Date.now() % 2147483647) : seed) >>> 0);
+  G = {
+    depth: 1, turn: 0, over: false, deathReason: '',
+    player: {x: 1, y: 1, hp: 25, maxHp: 25, lv: 1, atk: 5, exp: 0, hunger: 100, dir: 'down'},
+    inv: {bread: 1, herb: 0, fruit: 0},
+    kills: 0, log: [], map: [], rooms: [], enemies: [], items: [], stairs: {x: 0, y: 0}
+  };
+  genFloor();
+  log('⚔️ ダンジョンに足を踏み入れた！');
+  log('階段を見つけて、深くへ潜ろう。');
+  const res = $('result');
+  if (res) res.classList.add('hidden');
+  render();
+}
+
+/* ---- combat & turns ---- */
+function gainExp(n){
+  const p = G.player;
+  p.exp += n;
+  let need = p.lv * 10;
+  while (p.exp >= need){
+    p.exp -= need;
+    p.lv++;
+    p.maxHp += 5;
+    p.hp = Math.min(p.maxHp, p.hp + 5);
+    p.atk += 1;
+    need = p.lv * 10;
+    log('🎉 レベルアップ！ Lv' + p.lv + 'になった！');
+    sfxLevel();
+  }
+}
+function attackEnemy(e){
+  const p = G.player;
+  const dmg = p.atk + ri(0, 2);
+  e.hp -= dmg;
+  sfxSwing();
+  if (e.hp <= 0){
+    G.enemies.splice(G.enemies.indexOf(e), 1);
+    G.kills++;
+    log('💥 ' + e.name + 'を倒した！（+' + e.exp + ' EXP）');
+    sfxDefeat();
+    gainExp(e.exp);
+  } else {
+    log('⚔️ ' + e.name + 'に ' + dmg + ' ダメージ！');
+  }
+}
+function gameOver(reason){
+  if (G.over) return;
+  G.over = true;
+  G.deathReason = reason;
+  G.player.hp = Math.max(0, G.player.hp);
+  try {
+    const b = +(localStorage.getItem('nanahun-rogue-best') || 0);
+    if (G.depth > b) localStorage.setItem('nanahun-rogue-best', String(G.depth));
+  } catch (e) {}
+  sfxOver();
+  log('💀 ' + reason);
+  const res = $('result');
+  if (res){
+    $('death-reason').textContent = reason;
+    $('final-depth').textContent = G.depth;
+    $('final-stats').textContent = 'Lv ' + G.player.lv + ' ／ ' + G.kills + ' 体倒した';
+    res.classList.remove('hidden');
+  }
+}
+function enemyPhase(){
+  const p = G.player;
+  for (const e of [...G.enemies]){
+    if (G.over) return;
+    if (e.hp <= 0) continue;
+    const dx = p.x - e.x, dy = p.y - e.y;
+    const dist = Math.max(Math.abs(dx), Math.abs(dy));
+    if (dist === 1){
+      const dmg = Math.max(1, e.atk + ri(-1, 1));
+      p.hp -= dmg;
+      log('🩸 ' + e.name + 'の攻撃！ ' + dmg + ' ダメージを受けた');
+      sfxHit();
+      if (p.hp <= 0){ gameOver(e.name + 'に倒されてしまった…'); return; }
+      continue;
+    }
+    const aware = dist <= 6 || (roomAt(e.x, e.y) && roomAt(e.x, e.y) === roomAt(p.x, p.y));
+    if (aware){
+      const cands = [];
+      for (const [mx, my] of DIRS8){
+        const nx = e.x + mx, ny = e.y + my;
+        if (tileAt(nx, ny) !== 1) continue;
+        if (nx === p.x && ny === p.y) continue;
+        if (enemyAt(nx, ny)) continue;
+        cands.push({x: nx, y: ny, d: Math.max(Math.abs(p.x - nx), Math.abs(p.y - ny))});
+      }
+      if (cands.length){
+        cands.sort((a, b) => a.d - b.d);
+        if (cands[0].d < dist){ e.x = cands[0].x; e.y = cands[0].y; }
+        else if (rng() < 0.4){
+          const eq = cands.filter(c => c.d === dist);
+          if (eq.length){ const c = pick(eq); e.x = c.x; e.y = c.y; }
+        }
+      }
+    } else if (rng() < 0.5){
+      const dirs = [...DIRS8];
+      for (let i = dirs.length - 1; i > 0; i--){ const j = Math.floor(rng() * (i + 1)); [dirs[i], dirs[j]] = [dirs[j], dirs[i]]; }
+      for (const [mx, my] of dirs){
+        const nx = e.x + mx, ny = e.y + my;
+        if (tileAt(nx, ny) !== 1) continue;
+        if (nx === p.x && ny === p.y) continue;
+        if (enemyAt(nx, ny)) continue;
+        e.x = nx; e.y = ny;
+        break;
+      }
+    }
+  }
+}
+function afterTurn(){
+  const p = G.player;
+  G.turn++;
+  if (G.turn % 8 === 0 && p.hunger > 0) p.hunger--;
+  if (p.hunger > 0){
+    if (G.turn % 5 === 0 && p.hp < p.maxHp) p.hp++;
+  } else {
+    p.hp -= 1;
+    log('🍽️ お腹が空いてHPが減っていく…');
+    if (p.hp <= 0){ gameOver('空腹で力尽きてしまった…'); render(); return; }
+  }
+  enemyPhase();
+  render();
+}
+
+/* ---- player actions ---- */
+function dirName(dx, dy){
+  if (dx > 0) return 'right';
+  if (dx < 0) return 'left';
+  if (dy > 0) return 'down';
+  return 'up';
+}
+function move(dx, dy){
+  if (!G || G.over) return false;
+  const p = G.player;
+  if (dx !== 0 || dy !== 0) p.dir = dirName(dx, dy);
+  const nx = p.x + dx, ny = p.y + dy;
+  const e = enemyAt(nx, ny);
+  if (e){ attackEnemy(e); afterTurn(); return true; }
+  if (tileAt(nx, ny) === 0){ return false; }
+  p.x = nx; p.y = ny;
+  sfxStep();
+  const ii = G.items.findIndex(it => it.x === nx && it.y === ny);
+  if (ii >= 0){
+    const it = G.items[ii];
+    if (G.inv[it.kind] < 9){
+      G.inv[it.kind]++;
+      G.items.splice(ii, 1);
+      log(ITEM_INFO[it.kind].emoji + ' ' + ITEM_INFO[it.kind].name + 'を拾った！');
+      sfxPickup();
+    } else {
+      log('🎒 ' + ITEM_INFO[it.kind].name + 'はこれ以上持てない！');
+    }
+  }
+  if (nx === G.stairs.x && ny === G.stairs.y) log('🪜 階段だ！「降りる」ボタンで次の階へ。');
+  afterTurn();
+  return true;
+}
+function waitTurn(){
+  if (!G || G.over) return false;
+  afterTurn();
+  return true;
+}
+function useItem(kind){
+  if (!G || G.over) return false;
+  const p = G.player;
+  if (!ITEM_INFO[kind] || G.inv[kind] <= 0) return false;
+  G.inv[kind]--;
+  if (kind === 'bread'){
+    p.hunger = Math.min(100, p.hunger + 50);
+    log('🍞 パンを食べた。満腹度が回復！（' + p.hunger + '）');
+    sfxEat();
+  } else if (kind === 'herb'){
+    const before = p.hp;
+    p.hp = Math.min(p.maxHp, p.hp + 15);
+    log('🌿 薬草を使った。HPが ' + (p.hp - before) + ' 回復！');
+    sfxEat();
+  } else if (kind === 'fruit'){
+    p.atk += 1;
+    log('💪 ちからの実を食べた。攻撃力が ' + p.atk + ' に上がった！');
+    sfxEat();
+  }
+  afterTurn();
+  return true;
+}
+function descend(){
+  if (!G || G.over) return false;
+  const p = G.player;
+  if (p.x !== G.stairs.x || p.y !== G.stairs.y) return false;
+  G.depth++;
+  genFloor();
+  log('🪜 ' + G.depth + '階に降りた。敵が強くなっている…');
+  sfxDescend();
+  render();
+  return true;
+}
+
+/* ---- rendering ---- */
+const cv = $('cv');
+let ctx = null;
+try { ctx = cv.getContext('2d'); } catch (e) { ctx = null; }
+const IMG = {};
+function loadImg(key, src){
+  try {
+    const im = new Image();
+    im.onload = () => render();
+    im.src = src;
+    IMG[key] = im;
+  } catch (e) { IMG[key] = null; }
+}
+function imgReady(im){ return !!(im && im.complete && im.naturalWidth > 0); }
+function bestDepth(){
+  try { return +(localStorage.getItem('nanahun-rogue-best') || 0); } catch (e) { return 0; }
+}
+function render(){
+  if (!G) return;
+  const p = G.player;
+  /* HUD */
+  $('depth').textContent = G.depth;
+  $('lv').textContent = p.lv;
+  $('atk').textContent = p.atk;
+  const bd = bestDepth();
+  $('best').textContent = bd > 0 ? bd + '階' : '-';
+  $('hptext').textContent = Math.max(0, p.hp) + '/' + p.maxHp;
+  $('hpfill').style.width = Math.max(0, Math.round(p.hp / p.maxHp * 100)) + '%';
+  $('hgtext').textContent = p.hunger;
+  $('hgfill').style.width = p.hunger + '%';
+  $('n-bread').textContent = G.inv.bread;
+  $('n-herb').textContent = G.inv.herb;
+  $('n-fruit').textContent = G.inv.fruit;
+  $('btn-bread').disabled = G.inv.bread <= 0 || G.over;
+  $('btn-herb').disabled = G.inv.herb <= 0 || G.over;
+  $('btn-fruit').disabled = G.inv.fruit <= 0 || G.over;
+  const onStairs = p.x === G.stairs.x && p.y === G.stairs.y && !G.over;
+  $('btn-descend').classList.toggle('hidden', !onStairs);
+  const logEl = $('log');
+  logEl.innerHTML = '';
+  G.log.slice(-4).forEach(m => {
+    const d = document.createElement('div');
+    d.textContent = m;
+    logEl.appendChild(d);
+  });
+  /* canvas */
+  if (!ctx) return;
+  const camX = Math.max(0, Math.min(MW - VW, p.x - (VW >> 1)));
+  const camY = Math.max(0, Math.min(MH - VH, p.y - (VH >> 1)));
+  ctx.fillStyle = '#0c0a11';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  for (let vy = 0; vy < VH; vy++){
+    for (let vx = 0; vx < VW; vx++){
+      const mx = camX + vx, my = camY + vy;
+      const px = vx * TILE, py = vy * TILE;
+      if (tileAt(mx, my) === 0){
+        if (imgReady(IMG.wall)) ctx.drawImage(IMG.wall, px, py, TILE, TILE);
+        else { ctx.fillStyle = '#3d3652'; ctx.fillRect(px, py, TILE, TILE); }
+      } else {
+        const im = ((mx + my) % 2 === 0) ? IMG.floor : IMG.floor2;
+        if (imgReady(im)) ctx.drawImage(im, px, py, TILE, TILE);
+        else { ctx.fillStyle = ((mx + my) % 2 === 0) ? '#c9a06b' : '#bd945e'; ctx.fillRect(px, py, TILE, TILE); }
+      }
+    }
+  }
+  /* stairs */
+  {
+    const sx = (G.stairs.x - camX) * TILE, sy = (G.stairs.y - camY) * TILE;
+    if (sx >= 0 && sy >= 0 && sx < cv.width && sy < cv.height){
+      if (imgReady(IMG.stairs)) ctx.drawImage(IMG.stairs, sx, sy, TILE, TILE);
+      else { ctx.fillStyle = '#d7dce8'; ctx.fillRect(sx + 4, sy + 14, 20, 5); ctx.fillRect(sx + 8, sy + 9, 20, 5); }
+    }
+  }
+  /* items */
+  ctx.font = '19px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const it of G.items){
+    const ix = (it.x - camX) * TILE, iy = (it.y - camY) * TILE;
+    if (ix < -TILE || iy < -TILE || ix >= cv.width || iy >= cv.height) continue;
+    ctx.fillText(ITEM_INFO[it.kind].emoji, ix + TILE / 2, iy + TILE / 2 + 1);
+  }
+  /* enemies */
+  for (const e of G.enemies){
+    const ex = (e.x - camX) * TILE, ey = (e.y - camY) * TILE;
+    if (ex < -TILE || ey < -TILE || ex >= cv.width || ey >= cv.height) continue;
+    const im = IMG['mon_' + e.key];
+    if (imgReady(im)) ctx.drawImage(im, ex + 1, ey + 1, TILE - 2, TILE - 2);
+    else { ctx.fillStyle = '#c0392b'; ctx.fillRect(ex + 4, ey + 4, TILE - 8, TILE - 8); }
+    if (e.hp < e.maxHp){
+      ctx.fillStyle = 'rgba(0,0,0,.55)';
+      ctx.fillRect(ex + 3, ey + TILE - 6, TILE - 6, 4);
+      ctx.fillStyle = '#ff5d73';
+      ctx.fillRect(ex + 3, ey + TILE - 6, Math.max(0, (TILE - 6) * e.hp / e.maxHp), 4);
+    }
+  }
+  /* player (sprite overflows upward, classic look) */
+  {
+    const sxMap = {down: 0, right: 36, up: 72, left: 36};
+    const dw = 30, dh = 37;
+    const dx = (p.x - camX) * TILE + (TILE - dw) / 2;
+    const dy = (p.y - camY) * TILE + TILE - dh - 1;
+    const sheet = IMG.sheet;
+    if (imgReady(sheet)){
+      if (p.dir === 'left'){
+        ctx.save();
+        ctx.translate(dx + dw, dy);
+        ctx.scale(-1, 1);
+        ctx.drawImage(sheet, 36, 0, 32, 40, 0, 0, dw, dh);
+        ctx.restore();
+      } else {
+        ctx.drawImage(sheet, sxMap[p.dir] || 0, 0, 32, 40, dx, dy, dw, dh);
+      }
+    } else {
+      ctx.fillStyle = '#ffb703';
+      ctx.fillRect(dx + 5, dy + 8, dw - 10, dh - 8);
+    }
+  }
+}
+
+/* ---- input ---- */
+document.querySelectorAll('.dpad button').forEach(b => {
+  b.addEventListener('click', () => {
+    const dx = +b.dataset.dx, dy = +b.dataset.dy;
+    if (dx === 0 && dy === 0) waitTurn();
+    else move(dx, dy);
+  });
+});
+$('btn-bread').addEventListener('click', () => useItem('bread'));
+$('btn-herb').addEventListener('click', () => useItem('herb'));
+$('btn-fruit').addEventListener('click', () => useItem('fruit'));
+$('btn-descend').addEventListener('click', () => descend());
+$('btn-restart').addEventListener('click', () => newGame());
+$('btn-again').addEventListener('click', () => newGame());
+$('snd').addEventListener('click', toggleSound);
+document.addEventListener('keydown', ev => {
+  const k = ev.key;
+  const map = {
+    ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+    w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0],
+    q: [-1, -1], e: [1, -1], z: [-1, 1], c: [1, 1],
+    W: [0, -1], S: [0, 1], A: [-1, 0], D: [1, 0],
+    Q: [-1, -1], E: [1, -1], Z: [-1, 1], C: [1, 1]
+  };
+  if (map[k]){ ev.preventDefault(); move(map[k][0], map[k][1]); }
+  else if (k === ' ' || k === '.'){ ev.preventDefault(); waitTurn(); }
+  else if (k === 'Enter'){ descend(); }
+});
+
+/* ---- test hooks ---- */
+window.ROGUE = {
+  newGame, move, wait: waitTurn, useItem, descend, tileAt,
+  soundMuted, toggleSound,
+  state(){
+    return JSON.parse(JSON.stringify({
+      depth: G.depth, turn: G.turn, over: G.over, kills: G.kills,
+      player: G.player, inv: G.inv, enemies: G.enemies, items: G.items,
+      stairs: G.stairs, mapW: MW, mapH: MH
+    }));
+  },
+  debug: {
+    setPlayer(o){ Object.assign(G.player, o); },
+    placeEnemy(x, y, key){
+      const t = ET[key];
+      const e = {x, y, key, name: t.name, hp: t.hp, maxHp: t.hp, atk: t.atk, exp: t.exp};
+      G.enemies.push(e);
+      return e;
+    },
+    placeItem(x, y, kind){ G.items.push({x, y, kind}); },
+    clearEnemies(){ G.enemies = []; },
+    clearItems(){ G.items = []; },
+    give(kind, n){ G.inv[kind] = Math.min(9, G.inv[kind] + (n || 1)); }
+  }
+};
+
+/* ---- init ---- */
+loadImg('sheet', ASSETS.sheet);
+loadImg('floor', ASSETS.floor);
+loadImg('floor2', ASSETS.floor2);
+loadImg('wall', ASSETS.wall);
+loadImg('stairs', ASSETS.stairs);
+Object.keys(ASSETS.monsters).forEach(k => loadImg('mon_' + k, ASSETS.monsters[k]));
+updateSndBtn();
+newGame();
+</script>
+</body>
+</html>
