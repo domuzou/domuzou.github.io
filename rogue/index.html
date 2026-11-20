@@ -303,8 +303,8 @@ function genFloor(){
     const pos = freeTile(1);
     if (!pos) break;
     const r = rng();
-    const kind = r < 0.45 ? 'bread' : (r < 0.8 ? 'herb' : 'fruit');
-    G.items.push({x: pos.x, y: pos.y, kind});
+    const kind = r < 0.15 ? 'bread' : (r < 0.6 ? 'herb' : (r < 0.8 ? 'fruit' : null));
+    if (kind) G.items.push({x: pos.x, y: pos.y, kind});
   }
 }
 
