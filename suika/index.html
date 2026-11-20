@@ -150,7 +150,7 @@ for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j
 const a = bodies[i], b = bodies[j];
 if (a.stage!== b.stage || used.has(a.id) || used.has(b.id)) continue;
 const dx = b.x - a.x, dy = b.y - a.y, min = a.r + b.r;
-if (dx*dx + dy*dy < min*min*0.92){
+if (dx*dx + dy*dy < min*min*1.04){   /* 触れたら合体（静止接触でも反応するよう少し広め） */
 mergePairs.push([a, b]); used.add(a.id); used.add(b.id);
 }
 }
