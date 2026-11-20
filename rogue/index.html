@@ -6,38 +6,44 @@
 <title>ななふんダンジョン ～ドット絵の迷宮～</title>
 <style>
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
   body{
     font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
     background:linear-gradient(180deg,#1b1626,#100d18); color:#efeaf6;
-    min-height:100dvh; padding:8px 10px 18px; user-select:none; -webkit-user-select:none;
+    height:100dvh; overflow:hidden; display:flex; flex-direction:column;
+    padding:6px 10px; user-select:none; -webkit-user-select:none;
   }
-  .wrap{ max-width:480px; margin:0 auto; text-align:center; }
-  h1{ font-size:21px; letter-spacing:.04em; }
-  h1 .sub{ font-size:12px; font-weight:400; opacity:.75; margin-left:6px; }
-  .hud{ display:flex; justify-content:center; gap:6px; margin-top:8px; flex-wrap:wrap; align-items:center; }
-  .chip{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); border-radius:999px; padding:3px 11px; font-size:12.5px; }
-  .chip b{ font-size:15px; }
-  .bar-row{ display:flex; align-items:center; gap:7px; margin-top:6px; font-size:12px; max-width:392px; margin-left:auto; margin-right:auto; }
-  .bar-row .lbl{ width:30px; text-align:right; opacity:.85; }
-  .bar{ flex:1; height:11px; background:rgba(255,255,255,.12); border-radius:99px; overflow:hidden; }
+  .wrap{ flex:1; min-height:0; width:100%; max-width:480px; margin:0 auto; display:flex; flex-direction:column; align-items:center; }
+  header{ width:100%; display:flex; align-items:center; gap:6px; }
+  h1{ flex:1; min-width:0; font-size:15px; letter-spacing:.03em; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  h1 .sub{ font-size:10px; font-weight:400; opacity:.75; margin-left:5px; }
+  @media (max-width:380px){ h1 .sub{ display:none; } }
+  .hud{ display:flex; justify-content:center; gap:6px; margin-top:5px; flex-wrap:wrap; align-items:center; }
+  .chip{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); border-radius:999px; padding:2px 9px; font-size:11.5px; white-space:nowrap; }
+  .chip b{ font-size:13.5px; }
+  .bars{ width:100%; display:flex; gap:10px; margin-top:4px; }
+  .bar-row{ flex:1; display:flex; align-items:center; gap:5px; font-size:11px; min-width:0; }
+  .bar-row .lbl{ width:24px; text-align:right; opacity:.85; flex:none; }
+  .bar{ flex:1; min-width:0; height:8px; background:rgba(255,255,255,.12); border-radius:99px; overflow:hidden; }
   .bar > div{ height:100%; border-radius:99px; transition:width .15s; }
   #hpfill{ background:linear-gradient(90deg,#ff5d73,#ff8f5d); width:100%; }
   #hgfill{ background:linear-gradient(90deg,#ffc93f,#ffe95d); width:100%; }
-  .bar-row b{ width:66px; text-align:left; font-size:12.5px; }
+  .bar-row b{ min-width:34px; text-align:left; font-size:11.5px; flex:none; }
   #cv{
-    width:min(94vw, 392px); aspect-ratio:392/280; display:block; margin:9px auto 0;
+    width:min(392px, 94vw, calc((100dvh - 410px) * 1.444)); aspect-ratio:364/252;
+    display:block; margin:6px auto 0;
     background:#0c0a11; border:3px solid #4a4258; border-radius:12px;
     box-shadow:0 4px 16px rgba(0,0,0,.5); image-rendering:pixelated;
   }
   #log{
-    margin:8px auto 0; max-width:392px; min-height:76px; text-align:left;
-    font-size:12.5px; line-height:1.45; background:rgba(255,255,255,.06);
-    border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:6px 10px; color:#d9d2e8;
+    margin:6px auto 0; width:100%; max-width:392px; height:70px; overflow:hidden; text-align:left;
+    font-size:12px; line-height:1.28; background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:4px 9px; color:#d9d2e8;
   }
   #log div{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .controls{ display:flex; gap:12px; justify-content:center; align-items:flex-start; margin-top:10px; }
-  .dpad{ display:grid; grid-template-columns:repeat(3,54px); grid-template-rows:repeat(3,54px); gap:5px; }
-  .dpad button{ font-size:20px; padding:0; border-radius:14px; }
+  .controls{ display:flex; gap:10px; justify-content:center; width:100%; max-width:392px; height:146px; margin:8px auto 0; }
+  .dpad{ display:grid; grid-template-columns:repeat(3,46px); grid-template-rows:repeat(3,46px); gap:4px; flex:none; }
+  .dpad button{ font-size:17px; padding:0; border-radius:12px; }
   button{
     font:inherit; font-size:14px; font-weight:700; color:#fff;
     background:#5b4a8a; border:none; border-radius:12px; padding:10px 12px; cursor:pointer;
@@ -45,14 +51,14 @@
   }
   button:active{ transform:scale(.95); }
   button.sub{ background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.25); box-shadow:none; }
-  button.small{ font-size:12px; padding:5px 12px; border-radius:999px; }
+  button.small{ font-size:12px; padding:4px 9px; border-radius:999px; }
   button:disabled{ opacity:.38; }
-  .actions{ display:flex; flex-direction:column; gap:7px; flex:1; max-width:196px; }
-  .actions button{ width:100%; }
+  .actions{ display:flex; flex-direction:column; gap:5px; flex:1; max-width:200px; min-height:0; }
+  .actions button{ width:100%; flex:1; min-height:0; padding:4px 8px; font-size:12.5px; border-radius:10px; }
   #btn-descend{ background:#b97f2c; }
   .hidden{ display:none !important; }
-  .howto{ margin:12px auto 0; max-width:392px; font-size:11.5px; line-height:1.6; opacity:.75; text-align:left; }
-  footer{ margin-top:10px; font-size:11px; opacity:.6; line-height:1.6; }
+  footer{ width:100%; margin-top:5px; font-size:10px; line-height:1.35; opacity:.65; text-align:left; }
+  footer p{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #result{ position:fixed; inset:0; background:rgba(8,5,14,.78); display:flex; align-items:center; justify-content:center; z-index:10; padding:20px; }
   #result.hidden{ display:none; }
   .card{ background:#241f31; color:#efeaf6; border:1px solid rgba(255,255,255,.2); border-radius:20px; padding:26px 30px; text-align:center; max-width:320px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,.5); }
@@ -64,17 +70,22 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>⚔️ ななふんダンジョン<span class="sub">～ドット絵の迷宮～</span></h1>
+  <header>
+    <h1>⚔️ ななふんダンジョン<span class="sub">～ドット絵の迷宮～</span></h1>
+    <span class="chip">🏆 <b id="best">-</b></span>
+    <button class="sub small" id="btn-restart" title="最初から">🔁</button>
+    <button class="sub small" id="snd">🔊</button>
+  </header>
   <div class="hud">
     <span class="chip">🏯 <b id="depth">1</b>階</span>
     <span class="chip">Lv <b id="lv">1</b></span>
     <span class="chip">⚔️攻撃 <b id="atk">5</b></span>
-    <span class="chip">🏆ベスト <b id="best">-</b></span>
-    <button class="sub small" id="snd">🔊</button>
   </div>
-  <div class="bar-row"><span class="lbl">HP</span><div class="bar"><div id="hpfill"></div></div><b id="hptext">25/25</b></div>
-  <div class="bar-row"><span class="lbl">満腹</span><div class="bar"><div id="hgfill"></div></div><b id="hgtext">100</b></div>
-  <canvas id="cv" width="392" height="280"></canvas>
+  <div class="bars">
+    <div class="bar-row"><span class="lbl">HP</span><div class="bar"><div id="hpfill"></div></div><b id="hptext">25/25</b></div>
+    <div class="bar-row"><span class="lbl">満腹</span><div class="bar"><div id="hgfill"></div></div><b id="hgtext">100</b></div>
+  </div>
+  <canvas id="cv" width="364" height="252"></canvas>
   <div id="log"></div>
   <div class="controls">
     <div class="dpad">
@@ -93,11 +104,12 @@
       <button id="btn-herb">🌿 薬草を使う（<b id="n-herb">0</b>）</button>
       <button id="btn-fruit">💪 ちからの実（<b id="n-fruit">0</b>）</button>
       <button id="btn-descend" class="hidden">🪜 階段を降りる</button>
-      <button id="btn-restart" class="sub">🔁 最初から</button>
     </div>
   </div>
-  <p class="howto">遊び方：十字キーで8方向に移動（真ん中は待機）。敵にぶつかると攻撃！ 1回動くごとに敵も1回動くターン制だよ。🍞パンは満腹度+50、🌿薬草はHP+15、💪ちからの実は攻撃力+1。お腹が空くとHPが減るから気をつけて。階段に乗ると「降りる」ボタンが出るよ。キーボード（矢印/WASD/QEZC）でも遊べるよ。</p>
-  <footer>タイル・モンスター素材: Kenney "Tiny Dungeon" (CC0)<br>主人公ドット絵: 7分さんのイラストをもとに作成</footer>
+  <footer>
+    <p>遊び方：8方向キーで移動（真ん中は待機）。敵にぶつかると攻撃、階段に乗ると降りられる。🍞満腹+50 🌿HP+15 💪攻撃+1、空腹でHP減少。キーボード（矢印/WASD/QEZC）対応。</p>
+    <p>タイル・モンスター素材: Kenney "Tiny Dungeon" (CC0) ／ 主人公ドット絵: 7分さんのイラストをもとに作成</p>
+  </footer>
 </div>
 <div id="result" class="hidden">
   <div class="card">
@@ -182,7 +194,7 @@ function pick(arr){ return arr[Math.floor(rng() * arr.length)]; }
 
 /* ---- constants & data ---- */
 const MW = 28, MH = 20;            /* map size in tiles */
-const TILE = 28, VW = 14, VH = 10; /* canvas viewport in tiles */
+const TILE = 28, VW = 13, VH = 9; /* canvas viewport in tiles */
 const ETYPES = [
   {key: 'slime', name: 'スライム', hp: 8,  atk: 3, exp: 3,  minD: 1},
   {key: 'bat',   name: 'コウモリ', hp: 6,  atk: 4, exp: 4,  minD: 1},
@@ -500,6 +512,7 @@ function descend(){
 const cv = $('cv');
 let ctx = null;
 try { ctx = cv.getContext('2d'); } catch (e) { ctx = null; }
+let lastCam = {x: 0, y: 0};
 const IMG = {};
 function loadImg(key, src){
   try {
@@ -542,9 +555,10 @@ function render(){
     logEl.appendChild(d);
   });
   /* canvas */
-  if (!ctx) return;
   const camX = Math.max(0, Math.min(MW - VW, p.x - (VW >> 1)));
   const camY = Math.max(0, Math.min(MH - VH, p.y - (VH >> 1)));
+  lastCam = {x: camX, y: camY};
+  if (!ctx) return;
   ctx.fillStyle = '#0c0a11';
   ctx.fillRect(0, 0, cv.width, cv.height);
   for (let vy = 0; vy < VH; vy++){
@@ -648,6 +662,7 @@ document.addEventListener('keydown', ev => {
 /* ---- test hooks ---- */
 window.ROGUE = {
   newGame, move, wait: waitTurn, useItem, descend, tileAt,
+  camera(){ return {x: lastCam.x, y: lastCam.y, vw: VW, vh: VH}; },
   soundMuted, toggleSound,
   state(){
     return JSON.parse(JSON.stringify({
