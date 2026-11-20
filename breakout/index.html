@@ -18,6 +18,7 @@
   .chip{ background:rgba(255,255,255,.55); border:1px solid rgba(179,84,63,.35); border-radius:999px; padding:4px 12px; font-size:12.5px; }
   .chip b{ font-size:15px; }
   #msg{ margin-top:8px; font-size:13px; min-height:20px; line-height:1.5; color:#8a4b1d; font-weight:700; }
+  #fx{ margin-top:1px; font-size:12px; min-height:17px; line-height:1.4; color:#a35b23; font-weight:700; }
   #cv{
     width:min(94vw, 380px, max(220px, calc((100dvh - 208px) * 0.75)));
     aspect-ratio:3/4; display:block; margin:8px auto 0;
@@ -52,11 +53,12 @@
     <span class="chip">ベスト <b id="best">0</b></span>
   </div>
   <div id="msg"></div>
+  <div id="fx"></div>
   <canvas id="cv" width="360" height="480"></canvas>
   <div class="btns">
     <button class="sub" id="restart">🔁 最初から</button>
   </div>
-  <footer>バーをドラッグで動かして、タップでボールを発射！全部のブロックを壊そう</footer>
+  <footer>バーをドラッグで動かして、タップでボールを発射！ブロックを壊すとアイテムが落ちてくることがあるよ</footer>
 </div>
 
 <div id="result" class="hidden">
@@ -79,11 +81,28 @@ var BRICK_W = (W - BRICK_MX * 2 - (COLS - 1) * BRICK_GAP) / COLS;
 var PADDLE_W = 64, PADDLE_H = 10, PADDLE_Y = H - 24;
 var BALL_R = 6, BASE_SPEED = 260;
 var BEST_KEY = 'nanahun-breakout-best-v1';
+var ITEM_R = 11, ITEM_FALL = 150, DROP_CHANCE = 0.22, PADDLE_SPEED = 1500;
+var ITEM_TYPES = {
+  spd:    { glyph: '速', color: '#118ab2', name: 'バー速度アップ！' },
+  wide:   { glyph: '大', color: '#06d6a0', name: 'バー拡大！' },
+  narrow: { glyph: '小', color: '#ef476f', name: 'バー縮小…デバフ！' },
+  fast:   { glyph: '疾', color: '#f4842b', name: 'ボール加速…デバフ！' },
+  slow:   { glyph: '緩', color: '#2ec4b6', name: 'ボール減速！' },
+  life:   { glyph: '命', color: '#ff5d8f', name: 'ライフ+1！' }
+};
+var DROP_TABLE = ['spd','spd','wide','wide','wide','narrow','narrow','fast','fast','slow','slow','slow','life'];
 
 var score = 0, lives = 3, level = 1, bricks = [], bricksLeft = 0, over = false;
 var running = true, best = 0;
 try { best = +(localStorage.getItem(BEST_KEY) || 0); } catch (e) { best = 0; }
-var paddle = { x: W / 2 };
+var paddle = { x: W / 2, target: W / 2 };
+var items = [], ballMul = 1, timeSec = 0, forcedDrop = null;
+var fx = { wideUntil: -1, narrowUntil: -1, spdUntil: -1 };
+function curPW(){
+  if (timeSec < fx.wideUntil) return PADDLE_W * 1.45;
+  if (timeSec < fx.narrowUntil) return PADDLE_W * 0.62;
+  return PADDLE_W;
+}
 var ball = { x: W / 2, y: PADDLE_Y - BALL_R - 1, vx: 0, vy: 0, stuck: true };
 
 function $(id){ return document.getElementById(id); }
@@ -105,12 +124,15 @@ function buildBricks(){
   bricksLeft = COLS * ROWS;
 }
 function resetBall(){
+  ballMul = 1;
   ball.stuck = true; ball.vx = 0; ball.vy = 0;
   ball.x = paddle.x; ball.y = PADDLE_Y - BALL_R - 1;
 }
 function newGame(){
   score = 0; lives = 3; level = 1; over = false;
-  paddle.x = W / 2;
+  items = []; ballMul = 1; timeSec = 0; forcedDrop = null;
+  fx.wideUntil = fx.narrowUntil = fx.spdUntil = -1;
+  paddle.x = W / 2; paddle.target = W / 2;
   buildBricks(); resetBall();
   $('result').classList.add('hidden');
   updateHUD(); draw();
@@ -119,12 +141,11 @@ function newGame(){
 function launch(){
   if (over || !ball.stuck) return;
   ball.stuck = false;
-  var s = speed(), a = Math.PI / 6;
+  var s = speed() * ballMul, a = Math.PI / 6;
   ball.vx = s * Math.sin(a); ball.vy = -s * Math.cos(a);
 }
 function movePaddle(x){
-  paddle.x = Math.max(PADDLE_W / 2 + 2, Math.min(W - PADDLE_W / 2 - 2, x));
-  if (ball.stuck) { ball.x = paddle.x; ball.y = PADDLE_Y - BALL_R - 1; }
+  paddle.target = Math.max(PADDLE_W / 2 + 2, Math.min(W - PADDLE_W / 2 - 2, x));
 }
 function setBall(x, y, vx, vy){ ball.x = x; ball.y = y; ball.vx = vx; ball.vy = vy; ball.stuck = false; }
 function setBricksLeft(n){
@@ -157,10 +178,11 @@ function substep(h){
   if (ball.x > W - BALL_R) { ball.x = W - BALL_R; ball.vx = -Math.abs(ball.vx); }
   if (ball.y < BALL_R) { ball.y = BALL_R; ball.vy = Math.abs(ball.vy); }
   if (ball.y - BALL_R > H) { loseLife(); return; }
+  var pwNow = curPW();
   if (ball.vy > 0 &&
       ball.y + BALL_R >= PADDLE_Y && ball.y - BALL_R < PADDLE_Y + PADDLE_H &&
-      ball.x > paddle.x - PADDLE_W / 2 - BALL_R && ball.x < paddle.x + PADDLE_W / 2 + BALL_R) {
-    var rel = Math.max(-1, Math.min(1, (ball.x - paddle.x) / (PADDLE_W / 2)));
+      ball.x > paddle.x - pwNow / 2 - BALL_R && ball.x < paddle.x + pwNow / 2 + BALL_R) {
+    var rel = Math.max(-1, Math.min(1, (ball.x - paddle.x) / (pwNow / 2)));
     var ang = rel * 1.134;
     var m = Math.hypot(ball.vx, ball.vy) || speed();
     ball.vx = m * Math.sin(ang); ball.vy = -m * Math.cos(ang);
@@ -175,6 +197,9 @@ function substep(h){
     var dx = ball.x - cx, dy = ball.y - cy;
     if (dx * dx + dy * dy <= BALL_R * BALL_R) {
       b.alive = false; bricksLeft--; score += 10;
+      var dropType = forcedDrop;
+      if (!dropType && Math.random() < DROP_CHANCE) dropType = DROP_TABLE[Math.floor(Math.random() * DROP_TABLE.length)];
+      if (dropType) { items.push({ type: dropType, x: rc.x + rc.w / 2, y: rc.y + rc.h / 2 }); forcedDrop = null; }
       if (py + BALL_R <= rc.y || py - BALL_R >= rc.y + rc.h) ball.vy = -ball.vy;
       else ball.vx = -ball.vx;
       if (bricksLeft <= 0) levelUp();
@@ -182,9 +207,45 @@ function substep(h){
     }
   }
 }
+function rescaleBall(){
+  if (ball.stuck) return;
+  var m = Math.hypot(ball.vx, ball.vy);
+  if (!m) return;
+  var target = speed() * ballMul;
+  ball.vx *= target / m; ball.vy *= target / m;
+}
+function applyItem(t){
+  if (t === 'wide') { fx.wideUntil = timeSec + 15; fx.narrowUntil = -1; }
+  else if (t === 'narrow') { fx.narrowUntil = timeSec + 12; fx.wideUntil = -1; }
+  else if (t === 'spd') { fx.spdUntil = timeSec + 12; }
+  else if (t === 'fast') { ballMul = Math.min(1.8, ballMul * 1.3); rescaleBall(); }
+  else if (t === 'slow') { ballMul = Math.max(0.5, ballMul * 0.75); rescaleBall(); }
+  else if (t === 'life') { lives++; }
+  msg(ITEM_TYPES[t].name);
+  updateHUD();
+}
+function updateItems(dt){
+  var pw = curPW();
+  for (var i = items.length - 1; i >= 0; i--) {
+    var it = items[i];
+    it.y += ITEM_FALL * dt;
+    if (it.y + ITEM_R >= PADDLE_Y && it.y - ITEM_R <= PADDLE_Y + PADDLE_H &&
+        it.x > paddle.x - pw / 2 - ITEM_R && it.x < paddle.x + pw / 2 + ITEM_R) {
+      applyItem(it.type);
+      items.splice(i, 1);
+    } else if (it.y - ITEM_R > H) items.splice(i, 1);
+  }
+}
 function step(dt){
   if (over) return;
-  if (ball.stuck) { ball.x = paddle.x; ball.y = PADDLE_Y - BALL_R - 1; return; }
+  timeSec += dt;
+  var pw = curPW();
+  var maxMove = PADDLE_SPEED * (timeSec < fx.spdUntil ? 1.6 : 1) * dt;
+  var pdx = paddle.target - paddle.x;
+  paddle.x += Math.max(-maxMove, Math.min(maxMove, pdx));
+  paddle.x = Math.max(pw / 2 + 2, Math.min(W - pw / 2 - 2, paddle.x));
+  updateItems(dt);
+  if (ball.stuck) { ball.x = paddle.x; ball.y = PADDLE_Y - BALL_R - 1; updateHUD(); return; }
   var dist = Math.hypot(ball.vx, ball.vy) * dt;
   var n = Math.max(1, Math.ceil(dist / 3));
   var h = dt / n;
@@ -223,14 +284,30 @@ function draw(){
       rr(rc.x, rc.y, rc.w, rc.h, 5); ctx.fill();
     }
   }
+  for (var j = 0; j < items.length; j++) {
+    var it2 = items[j], def = ITEM_TYPES[it2.type];
+    ctx.fillStyle = def.color;
+    ctx.beginPath(); ctx.arc(it2.x, it2.y, ITEM_R, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(def.glyph, it2.x, it2.y + 1);
+  }
   ctx.fillStyle = '#5b4232';
-  rr(paddle.x - PADDLE_W / 2, PADDLE_Y, PADDLE_W, PADDLE_H, 5); ctx.fill();
+  var pwD = curPW();
+  rr(paddle.x - pwD / 2, PADDLE_Y, pwD, PADDLE_H, 5); ctx.fill();
   ctx.fillStyle = '#b3543f';
   ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.55)';
   ctx.beginPath(); ctx.arc(ball.x - 2, ball.y - 2, 2, 0, Math.PI * 2); ctx.fill();
 }
 function updateHUD(){
+  var parts = [];
+  if (timeSec < fx.wideUntil) parts.push('バー大 あと' + Math.ceil(fx.wideUntil - timeSec) + '秒');
+  if (timeSec < fx.narrowUntil) parts.push('バー小 あと' + Math.ceil(fx.narrowUntil - timeSec) + '秒');
+  if (timeSec < fx.spdUntil) parts.push('バー速 あと' + Math.ceil(fx.spdUntil - timeSec) + '秒');
+  if (ballMul > 1.02) parts.push('ボール加速中');
+  else if (ballMul < 0.98) parts.push('ボール減速中');
+  $('fx').textContent = parts.join('　');
   $('score').textContent = score;
   $('lives').textContent = lives;
   $('level').textContent = level;
@@ -266,6 +343,11 @@ window.BREAKOUT = {
     return {
       score: score, lives: lives, level: level, bricksLeft: bricksLeft, over: over,
       paddleX: paddle.x,
+      items: items.length,
+      itemTypes: items.map(function(i){ return i.type; }),
+      paddleW: curPW(),
+      ballMul: ballMul,
+      fx: { wide: timeSec < fx.wideUntil, narrow: timeSec < fx.narrowUntil, spd: timeSec < fx.spdUntil },
       ball: { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy, stuck: ball.stuck }
     };
   },
@@ -275,6 +357,8 @@ window.BREAKOUT = {
   setBall: setBall,
   movePaddle: movePaddle,
   setBricksLeft: setBricksLeft,
+  spawnItem: function(type, x, y){ items.push({ type: type, x: x, y: y }); },
+  forceDrop: function(type){ forcedDrop = type; },
   stop: function(){ running = false; },
   start: function(){ running = true; }
 };
