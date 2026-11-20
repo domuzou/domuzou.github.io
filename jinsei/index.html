@@ -51,6 +51,9 @@
   .t-bonus{ background:rgba(255,180,220,.34); }
   .t-fork{ background:rgba(255,255,255,.30); }
   .t-study{ background:rgba(140,200,255,.32); }
+  .t-uni{ background:rgba(150,130,255,.36); }
+  .t-training{ background:rgba(120,170,255,.30); }
+  .t-rest{ background:rgba(255,210,150,.30); }
   .t-exam{ background:rgba(255,255,255,.34); }
   .t-start{ background:rgba(255,255,255,.38); }
   .t-goal{ background:#ffd94d; color:#3a2b00; }
@@ -189,6 +192,9 @@ const LOAN_RATE   = 1.2;      /* 割賦購入の総額倍率 */
 const LOAN_REPAY  = 50000;    /* 給料日ごとのローン自動返済額 */
 const JOBLESS_PAY = 20000;    /* 無職で仕事マスに止まった時のバイト代 */
 const CHILD_VALUE = 300000;   /* 精算時の子供1人の価値 */
+const JINMYAKU_GATE = 3;      /* 高給就職に必要な人脈 */
+const JINMYAKU_MAX  = 10;     /* 人脈の上限 */
+const HOUSE_TAX     = 10000;  /* 家を持っている時に家マスで払う固定資産税 */
 
 const JOBS_NORMAL = [
   {name: '会社員', salary: 280000},
@@ -233,6 +239,34 @@ const CHILD_SINGLE = [
   {text: '近所の子供たちにお菓子を買ってあげた', amt: -3000},
   {text: '近所の子供たちと遊んでほっこりした', amt: 0},
   {text: '近所の子供に懐かれて、手作りのお礼をもらった', amt: 1000}
+];
+
+/* 大学ルートのイベント：人脈（jin）の増減。就活パラメータ */
+const UNI_EVENTS = {
+  5:  [{text: '入学式で友達ができた！', jin: 1}],
+  6:  [{text: '飲み会で盛り上げ役になって人気者になった', jin: 1},
+       {text: '飲み会でつぶれて周りに迷惑をかけた…', jin: -2}],
+  9:  [{text: 'サークルで幅広い人脈ができた！', jin: 2}],
+  10: [{text: '旅行に夢中で就活準備がおろそかになった', jin: -1},
+       {text: '単位を落として留年… 就活にも遅れをとった', jin: -2}],
+  11: [{text: 'ゼミで教授とつながりができた', jin: 1}]
+};
+/* 研修マス（就職ルート）の小イベント */
+const TRAINING_EVENTS = [
+  {text: '研修を優秀な成績で終えて手当が出た', amt: 5000},
+  {text: '研修の教材費が自腹になった', amt: -3000},
+  {text: '研修で同期にランチをごちそうした', amt: -1000}
+];
+/* 休憩マス（本線）の小イベント */
+const REST_EVENTS = [
+  {text: 'のんびり散歩して、落とし物を届けたらお礼をもらった', amt: 2000},
+  {text: 'フリマアプリで不用品が売れた', amt: 5000},
+  {text: 'カフェでゆっくりしすぎて出費がかさんだ', amt: -3000}
+];
+/* 恋愛マス（既婚）の小イベント */
+const ROMANCE_MARRIED = [
+  {text: '夫婦で外食券が当たった！', amt: 10000},
+  {text: '夫婦で記念日ディナーを楽しんだ', amt: -5000}
 ];
 
 /* 仕事マスのイベント：職業ごとに 2〜3 件。mult は給料の倍率、raise は恒常的な昇給額 */
@@ -313,15 +347,15 @@ const NODES = {
   16:{r:0,c:1,t:'study',icon:'📚',label:'勉強'},
   17:{r:0,c:3,t:'study',icon:'📚',label:'勉強'},
   18:{r:0,c:5,t:'study',icon:'📚',label:'勉強'},
-  5:{r:0,c:5,t:'plain',icon:'📚',label:'入学',text:'大学に入学した'},
-  6:{r:0,c:6,t:'unlucky',icon:'💸',label:'出費'},
+  5:{r:0,c:5,t:'uni',icon:'🎒',label:'入学'},
+  6:{r:0,c:6,t:'uni',icon:'🍶',label:'飲み会'},
   7:{r:0,c:7,t:'payday',icon:'💴',label:'給料日'},
   8:{r:1,c:7,t:'lucky',icon:'🍀',label:'幸運'},
-  9:{r:2,c:7,t:'plain',icon:'🍻',label:'サークル',text:'サークル活動を楽しんだ'},
-  10:{r:3,c:7,t:'unlucky',icon:'💸',label:'出費'},
-  11:{r:3,c:6,t:'plain',icon:'🔬',label:'ゼミ',text:'ゼミで研究に励んだ'},
+  9:{r:2,c:7,t:'uni',icon:'🍻',label:'サークル'},
+  10:{r:3,c:7,t:'uni',icon:'✈️',label:'旅行'},
+  11:{r:3,c:6,t:'uni',icon:'🔬',label:'ゼミ'},
   12:{r:3,c:5,t:'jobu',icon:'🎓',label:'卒業'},
-  13:{r:1,c:4,t:'plain',icon:'🏢',label:'研修',text:'研修を受けた'},
+  13:{r:1,c:4,t:'training',icon:'🏢',label:'研修'},
   14:{r:2,c:4,t:'payday',icon:'💴',label:'給料日'},
   15:{r:2,c:3,t:'employ',icon:'💼',label:'就職'},
   20:{r:3,c:4,t:'plain',icon:'🤝',label:'合流',text:'みんなと合流した'},
@@ -365,7 +399,7 @@ const NODES = {
   58:{r:8,c:1,t:'payday',icon:'💴',label:'給料日'},
   59:{r:8,c:2,t:'gamble',icon:'🎰',label:'ギャンブル'},
   60:{r:8,c:3,t:'job',icon:'🧑‍💼',label:'仕事'},
-  61:{r:8,c:4,t:'plain',icon:'🍵',label:'休憩',text:'のんびり休憩した'},
+  61:{r:8,c:4,t:'rest',icon:'🍵',label:'休憩'},
   62:{r:8,c:5,t:'lucky',icon:'🍀',label:'幸運'},
   63:{r:8,c:6,t:'payday',icon:'💴',label:'給料日'},
   64:{r:8,c:7,t:'goal',icon:'🏆',label:'ゴール'}
@@ -403,7 +437,7 @@ const STEP_MS = 420;    /* コマが1マス進む間隔 */
 
 function newPlayer(name){
   return {name: name, money: START_MONEY, job: null, partner: 'none', affection: 0, children: 0,
-          house: null, loan: 0, route: null, degree: false, pos: 0, goaled: false, studyCount: 0};
+          house: null, loan: 0, route: null, degree: false, pos: 0, goaled: false, studyCount: 0, jinmyaku: 0};
 }
 function newGame(){
   players = [newPlayer('あなた'), newPlayer('CPU')];
@@ -414,7 +448,7 @@ function newGame(){
   $('result').classList.add('hidden');
   $('rnum').textContent = '?';
   log('受験マスで進路が決まるよ。勉強マスに止まるほど合格ラインが上がるさ。就職・恋愛・家・ゴールは必ず止まるマス。給料日は通過でももらえて、ぴったり止まると2倍。精算：資産 ＝ 所持金 ＋ 家の価値 − ローン残高 ＋ 子供1人につき ¥300,000');
-  log('ゲームスタート！ まずは勉強して受験に備えよう');
+  log('ゲームスタート！ まずは勉強して受験に備えよう。大学では人脈を ' + JINMYAKU_GATE + ' 以上にすると高給就職できるよ');
   render();
 }
 /* プレイヤーの進むマス列。就職ルートは合流マス(20)を飛ばして21から合流する */
@@ -488,7 +522,7 @@ function romanceStop(p){
   const idx = players.indexOf(p);
   const opp = players[1 - idx];
   if (p.partner === 'married'){
-    log(p.name + '： 💕 夫婦仲良く暮らしている', 'neutral');
+    moneyEvent(p, ROMANCE_MARRIED, '💕');
   } else if (p.partner === 'none'){
     p.partner = 'dating';
     p.affection = 30;
@@ -565,6 +599,26 @@ function jobEvent(p){
   }
   render();
 }
+/* 金額イベント表から1件引いて適用する（研修・休憩・既婚の恋愛マス用） */
+function moneyEvent(p, list, icon){
+  const e = pick(list);
+  p.money += e.amt;
+  const kind = e.amt > 0 ? 'good' : (e.amt < 0 ? 'bad' : 'neutral');
+  log(p.name + '： ' + icon + ' ' + e.text + (e.amt > 0 ? ' +' : ' ') + fmt(e.amt), kind);
+  if (e.amt > 0) sfxGood(); else if (e.amt < 0) sfxBad();
+  render();
+}
+/* ---- 大学ルートのイベントマス：人脈が増減する ---- */
+function uniStop(p){
+  const id = routeOf(p)[p.pos];
+  const list = UNI_EVENTS[id] || [{text: '大学生活を楽しんだ', jin: 1}];
+  const e = pick(list);
+  p.jinmyaku = Math.max(0, Math.min(JINMYAKU_MAX, p.jinmyaku + e.jin));
+  const kind = e.jin > 0 ? 'good' : (e.jin < 0 ? 'bad' : 'neutral');
+  log(p.name + '： ' + NODES[id].icon + ' ' + e.text + ' 人脈' + (e.jin >= 0 ? '+' : '') + e.jin + '（人脈が ' + p.jinmyaku + ' になった）', kind);
+  if (e.jin > 0) sfxGood(); else if (e.jin < 0) sfxBad();
+  render();
+}
 function resolveLanding(p){
   const idx = players.indexOf(p);
   const isCpu = idx === 1;
@@ -574,6 +628,12 @@ function resolveLanding(p){
       log(p.name + '： スタート地点', 'neutral'); break;
     case 'plain':
       log(p.name + '： ' + (nd.text || '何も起きなかった'), 'neutral'); break;
+    case 'uni':
+      uniStop(p); break;
+    case 'training':
+      moneyEvent(p, TRAINING_EVENTS, '🏢'); break;
+    case 'rest':
+      moneyEvent(p, REST_EVENTS, '🍵'); break;
     case 'bonus':
       p.money += nd.amt;
       log(p.name + '： ' + nd.text + ' +' + fmt(nd.amt), 'good'); sfxGood(); break;
@@ -627,14 +687,24 @@ function resolveLanding(p){
       duelStop(p); break;
     case 'jobu':
       p.degree = true;
-      p.job = drawJob(p, true);
-      log(p.name + '： 🎓 大学を卒業して就職！ 職業は「' + p.job.name + '」（給料 ' + fmt(p.job.salary) + '）', 'good'); sfxGood(); break;
+      if (p.jinmyaku >= JINMYAKU_GATE){
+        p.job = drawJob(p, true);
+        log(p.name + '： 🎓 大学を卒業して就職！ 人脈（' + p.jinmyaku + '）を活かして高給の職業に！ 職業は「' + p.job.name + '」（給料 ' + fmt(p.job.salary) + '）', 'good');
+      } else {
+        const j = pick(JOBS_NORMAL);
+        p.job = {name: j.name, salary: j.salary};
+        log(p.name + '： 🎓 大学を卒業したが、人脈が ' + p.jinmyaku + '（必要 ' + JINMYAKU_GATE + '）で高給の就職はならなかった… 職業は「' + p.job.name + '」（給料 ' + fmt(p.job.salary) + '）', 'bad');
+      }
+      sfxGood(); break;
     case 'exam':
       examStop(p); break;
     case 'marriage':
       romanceStop(p); break;
     case 'house':
-      if (p.house) log(p.name + '： 🏠 もう家を持っている（' + p.house.name + '）', 'neutral');
+      if (p.house){
+        p.money -= HOUSE_TAX;
+        log(p.name + '： 🏠 ' + p.house.name + 'の固定資産税 ' + fmt(-HOUSE_TAX), 'bad'); sfxBad();
+      }
       else if (isCpu) cpuHouse(p);
       else { pending = {type: 'house'}; log(p.name + '： 🏠 家を買うチャンス！ どうする？', 'neutral'); }
       break;
@@ -827,7 +897,7 @@ function render(){
     const p = players[i], pre = 'p' + i;
     $(pre + '-job').textContent = p.job ? p.job.name : 'まだなし';
     $(pre + '-sal').textContent = p.job ? fmt(p.job.salary) : '-';
-    $(pre + '-study').textContent = ' 📚×' + p.studyCount + (p.route === 'uni' ? ' 🎓合格' : (p.route === 'job' ? ' 就職' : ''));
+    $(pre + '-study').textContent = ' 📚×' + p.studyCount + (p.route === 'uni' ? ' 🎓合格 🤝人脈' + p.jinmyaku : (p.route === 'job' ? ' 就職' : ''));
     const mEl = $(pre + '-money');
     mEl.textContent = fmt(p.money);
     mEl.classList.toggle('neg', p.money < 0);
@@ -987,7 +1057,7 @@ function state(){
       job: p.job ? {name: p.job.name, salary: p.job.salary} : null,
       married: p.partner === 'married', partner: p.partner, affection: p.affection, loan: p.loan, children: p.children,
       house: p.house ? {name: p.house.name, price: p.house.price} : null,
-      route: p.route, degree: p.degree, studyCount: p.studyCount, pos: p.pos,
+      route: p.route, degree: p.degree, studyCount: p.studyCount, jinmyaku: p.jinmyaku, pos: p.pos,
       node: routeOf(p)[p.pos], goaled: p.goaled
     })),
     turn: turn, phase: phase,
@@ -1023,7 +1093,7 @@ window.JINSEI = {
   layout: {cellW: CELL_W, laneH: LANE_H, stripW: STRIP_W, maxX: MAX_X},
   soundMuted: soundMuted,
   toggleSound: toggleSound,
-  data: {JOBS_NORMAL: JOBS_NORMAL, JOBS_HIGH: JOBS_HIGH, HOUSES: HOUSES, LUCKY: LUCKY, UNLUCKY: UNLUCKY, CHILD_SINGLE: CHILD_SINGLE, PREFIX: PREFIX, UNI: UNI, JOBR: JOBR, MAIN: MAIN, NODES: NODES, JOB_EVENTS: JOB_EVENTS}
+  data: {JOBS_NORMAL: JOBS_NORMAL, JOBS_HIGH: JOBS_HIGH, HOUSES: HOUSES, LUCKY: LUCKY, UNLUCKY: UNLUCKY, CHILD_SINGLE: CHILD_SINGLE, UNI_EVENTS: UNI_EVENTS, TRAINING_EVENTS: TRAINING_EVENTS, REST_EVENTS: REST_EVENTS, ROMANCE_MARRIED: ROMANCE_MARRIED, JINMYAKU_GATE: JINMYAKU_GATE, PREFIX: PREFIX, UNI: UNI, JOBR: JOBR, MAIN: MAIN, NODES: NODES, JOB_EVENTS: JOB_EVENTS}
 };
 newGame();
 </script>
