@@ -50,6 +50,8 @@
   .t-job,.t-jobu,.t-employ{ background:rgba(120,170,255,.30); }
   .t-bonus{ background:rgba(255,180,220,.34); }
   .t-fork{ background:rgba(255,255,255,.30); }
+  .t-study{ background:rgba(140,200,255,.32); }
+  .t-exam{ background:rgba(255,255,255,.34); }
   .t-start{ background:rgba(255,255,255,.38); }
   .t-goal{ background:#ffd94d; color:#3a2b00; }
   .toks{ position:absolute; left:0; right:0; bottom:0; display:flex; justify-content:center; gap:1px; pointer-events:none; }
@@ -94,12 +96,12 @@
   <div class="panels">
     <div class="pcard p0" id="p0-card">
       <div class="nm"><img id="p0-img" alt="">あなた<span class="money" id="p0-money">¥100,000</span></div>
-      <div class="det"><span id="p0-job">まだなし</span>（給料 <span id="p0-sal">-</span>）</div>
+      <div class="det"><span id="p0-job">まだなし</span>（給料 <span id="p0-sal">-</span>）<span id="p0-study"></span></div>
       <div class="det"><span id="p0-fam">独身 / 子供 0人</span> ・ 家：<span id="p0-house">なし</span></div>
     </div>
     <div class="pcard p1" id="p1-card">
       <div class="nm"><img id="p1-img" alt="">CPU<span class="money" id="p1-money">¥100,000</span></div>
-      <div class="det"><span id="p1-job">まだなし</span>（給料 <span id="p1-sal">-</span>）</div>
+      <div class="det"><span id="p1-job">まだなし</span>（給料 <span id="p1-sal">-</span>）<span id="p1-study"></span></div>
       <div class="det"><span id="p1-fam">独身 / 子供 0人</span> ・ 家：<span id="p1-house">なし</span></div>
     </div>
   </div>
@@ -178,7 +180,7 @@ document.addEventListener('pointerdown', () => { audio(); }, {passive: true});
 
 /* ================= data tables (tune contents here) ================= */
 const START_MONEY = 100000;   /* 初期の所持金 */
-const TUITION     = 80000;    /* 大学の授業料（分岐で支払い） */
+const TUITION     = 80000;    /* 大学の授業料（受験合格時に支払い） */
 const BAITO_PAY   = 30000;    /* 職業がない時の給料日（アルバイト代） */
 const GIFT        = 30000;    /* 結婚の祝儀（相手が払う） */
 const CHILD_BONUS = 10000;    /* 出産祝い（相手が払う） */
@@ -307,7 +309,10 @@ const NODES = {
   1:{r:0,c:1,t:'bonus',icon:'🎁',label:'お年玉',amt:10000,text:'お年玉をもらった'},
   2:{r:0,c:2,t:'payday',icon:'💴',label:'給料日'},
   3:{r:0,c:3,t:'unlucky',icon:'💸',label:'出費'},
-  4:{r:0,c:4,t:'fork',icon:'🔀',label:'分岐'},
+  4:{r:0,c:4,t:'exam',icon:'🎓',label:'受験'},
+  16:{r:0,c:1,t:'study',icon:'📚',label:'勉強'},
+  17:{r:0,c:3,t:'study',icon:'📚',label:'勉強'},
+  18:{r:0,c:5,t:'study',icon:'📚',label:'勉強'},
   5:{r:0,c:5,t:'plain',icon:'📚',label:'入学',text:'大学に入学した'},
   6:{r:0,c:6,t:'unlucky',icon:'💸',label:'出費'},
   7:{r:0,c:7,t:'payday',icon:'💴',label:'給料日'},
@@ -365,13 +370,13 @@ const NODES = {
   63:{r:8,c:6,t:'payday',icon:'💴',label:'給料日'},
   64:{r:8,c:7,t:'goal',icon:'🏆',label:'ゴール'}
 };
-const PREFIX = [0, 1, 2, 3, 4];
+const PREFIX = [0, 16, 1, 17, 2, 18, 3, 4];
 const UNI    = [5, 6, 7, 8, 9, 10, 11, 12];
 const JOBR   = [13, 14, 15];
 const MAIN   = [];
 for (let i = 20; i <= 64; i++) MAIN.push(i);
 /* 通り過ぎても必ず止まるマス */
-const MUST_STOP = {fork: 1, employ: 1, jobu: 1, marriage: 1, house: 1, goal: 1};
+const MUST_STOP = {exam: 1, employ: 1, jobu: 1, marriage: 1, house: 1, goal: 1};
 
 /* 横ストリップ盤面の座標： x = 経路順の列, lane 1 = 本線（就職ルート含む）, lane 0 = 大学ルート */
 const CELL_W = 46, LANE_H = 54;
@@ -398,7 +403,7 @@ const STEP_MS = 420;    /* コマが1マス進む間隔 */
 
 function newPlayer(name){
   return {name: name, money: START_MONEY, job: null, partner: 'none', affection: 0, children: 0,
-          house: null, loan: 0, route: null, degree: false, pos: 0, goaled: false};
+          house: null, loan: 0, route: null, degree: false, pos: 0, goaled: false, studyCount: 0};
 }
 function newGame(){
   players = [newPlayer('あなた'), newPlayer('CPU')];
@@ -408,8 +413,8 @@ function newGame(){
   lastEvent = null;
   $('result').classList.add('hidden');
   $('rnum').textContent = '?';
-  log('分岐では大学（上の青レーン）か就職（下の本線）かを選ぶよ。就職・恋愛・家・ゴールは必ず止まるマス。給料日は通過でももらえて、ぴったり止まると2倍。精算：資産 ＝ 所持金 ＋ 家の価値 − ローン残高 ＋ 子供1人につき ¥300,000');
-  log('ゲームスタート！ まずは分岐で進路を決めよう');
+  log('受験マスで進路が決まるよ。勉強マスに止まるほど合格ラインが上がるさ。就職・恋愛・家・ゴールは必ず止まるマス。給料日は通過でももらえて、ぴったり止まると2倍。精算：資産 ＝ 所持金 ＋ 家の価値 − ローン残高 ＋ 子供1人につき ¥300,000');
+  log('ゲームスタート！ まずは勉強して受験に備えよう');
   render();
 }
 /* プレイヤーの進むマス列。就職ルートは合流マス(20)を飛ばして21から合流する */
@@ -602,6 +607,12 @@ function resolveLanding(p){
       }
       break;
     }
+    case 'study': {
+      p.studyCount++;
+      const line = Math.min(5, 2 + p.studyCount);
+      log(p.name + '： 📚 しっかり勉強した！（勉強 ' + p.studyCount + '回目、受験の合格ラインは ' + line + '）', 'good'); sfxGood();
+      break;
+    }
     case 'change':
       p.job = drawJob(p, false);
       log(p.name + '： 🔄 転職した！ 新しい職業は「' + p.job.name + '」（給料 ' + fmt(p.job.salary) + '）', 'neutral'); sfxGood(); break;
@@ -618,10 +629,8 @@ function resolveLanding(p){
       p.degree = true;
       p.job = drawJob(p, true);
       log(p.name + '： 🎓 大学を卒業して就職！ 職業は「' + p.job.name + '」（給料 ' + fmt(p.job.salary) + '）', 'good'); sfxGood(); break;
-    case 'fork':
-      if (isCpu) applyFork(p, rf() < 0.55 ? 'uni' : 'job');
-      else { pending = {type: 'fork'}; log(p.name + '： 🔀 分岐！ 大学へ行くか、すぐ就職するか選んでね', 'neutral'); }
-      break;
+    case 'exam':
+      examStop(p); break;
     case 'marriage':
       romanceStop(p); break;
     case 'house':
@@ -639,24 +648,20 @@ function resolveLanding(p){
   }
   render();
 }
-/* ---- fork ---- */
-function applyFork(p, routeName){
-  p.route = routeName;
-  if (routeName === 'uni'){
-    p.money -= TUITION;
+/* ---- 受験マス：止まったら自動で合否判定（合格ライン = min(5, 2 + 勉強回数)） ---- */
+function examStop(p){
+  const line = Math.min(5, 2 + p.studyCount);
+  const roll = nextRoll();
+  if (roll <= line){
+    p.route = 'uni';
     p.degree = true;
-    log(p.name + '： 🎓 大学へ進学！ 授業料 ' + fmt(TUITION) + ' を払った', 'bad');
+    p.money -= TUITION;
+    log(p.name + '： 🎓 受験… ダイス ' + roll + '（合格ライン ' + line + '）で合格！ 大学へ進学（授業料 ' + fmt(TUITION) + '）', 'good'); sfxGood();
   } else {
-    log(p.name + '： 💼 すぐ就職する道を選んだ', 'neutral');
+    p.route = 'job';
+    log(p.name + '： 🎓 受験… ダイス ' + roll + '（合格ライン ' + line + '）で不合格… 浪人せず就職することにした', 'bad'); sfxBad();
   }
   render();
-}
-function chooseFork(routeName){
-  if (!pending || pending.type !== 'fork') return;
-  const p = players[turn];
-  pending = null;
-  applyFork(p, routeName === 'uni' ? 'uni' : 'job');
-  enterWait();
 }
 /* ---- house ---- */
 function houseTotal(h){ return Math.round(h.price * LOAN_RATE / 10000) * 10000; }
@@ -822,6 +827,7 @@ function render(){
     const p = players[i], pre = 'p' + i;
     $(pre + '-job').textContent = p.job ? p.job.name : 'まだなし';
     $(pre + '-sal').textContent = p.job ? fmt(p.job.salary) : '-';
+    $(pre + '-study').textContent = ' 📚×' + p.studyCount + (p.route === 'uni' ? ' 🎓合格' : (p.route === 'job' ? ' 就職' : ''));
     const mEl = $(pre + '-money');
     mEl.textContent = fmt(p.money);
     mEl.classList.toggle('neg', p.money < 0);
@@ -887,10 +893,7 @@ function renderChoice(){
   if (!pending || turn !== 0){ box.style.display = 'none'; return; }
   box.style.display = 'flex';
   const p = players[0];
-  if (pending.type === 'fork'){
-    box.appendChild(mkBtn('🎓 大学へ行く（授業料 ' + fmt(TUITION) + '）', () => chooseFork('uni')));
-    box.appendChild(mkBtn('💼 すぐ就職する', () => chooseFork('job'), 'sub'));
-  } else if (pending.type === 'house'){
+  if (pending.type === 'house'){
     HOUSES.forEach((h, i) => {
       const b1 = mkBtn('🏠 ' + h.name + ' 一括 ' + fmt(h.price), () => chooseHouse(i, 'full'));
       if (p.money < h.price) b1.disabled = true;
@@ -984,7 +987,7 @@ function state(){
       job: p.job ? {name: p.job.name, salary: p.job.salary} : null,
       married: p.partner === 'married', partner: p.partner, affection: p.affection, loan: p.loan, children: p.children,
       house: p.house ? {name: p.house.name, price: p.house.price} : null,
-      route: p.route, degree: p.degree, pos: p.pos,
+      route: p.route, degree: p.degree, studyCount: p.studyCount, pos: p.pos,
       node: routeOf(p)[p.pos], goaled: p.goaled
     })),
     turn: turn, phase: phase,
@@ -1010,7 +1013,6 @@ window.JINSEI = {
   forceRoll: v => { forcedRoll = v; },
   setRng: fn => { rng = fn || Math.random; },
   setAutoCpu: b => { autoCpu = !!b; },
-  chooseFork: chooseFork,
   chooseHouse: chooseHouse,
   chooseGamble: chooseGamble,
   settle: settle,
@@ -1021,7 +1023,7 @@ window.JINSEI = {
   layout: {cellW: CELL_W, laneH: LANE_H, stripW: STRIP_W, maxX: MAX_X},
   soundMuted: soundMuted,
   toggleSound: toggleSound,
-  data: {JOBS_NORMAL: JOBS_NORMAL, JOBS_HIGH: JOBS_HIGH, HOUSES: HOUSES, LUCKY: LUCKY, UNLUCKY: UNLUCKY, CHILD_SINGLE: CHILD_SINGLE, NODES: NODES, JOB_EVENTS: JOB_EVENTS}
+  data: {JOBS_NORMAL: JOBS_NORMAL, JOBS_HIGH: JOBS_HIGH, HOUSES: HOUSES, LUCKY: LUCKY, UNLUCKY: UNLUCKY, CHILD_SINGLE: CHILD_SINGLE, PREFIX: PREFIX, UNI: UNI, JOBR: JOBR, MAIN: MAIN, NODES: NODES, JOB_EVENTS: JOB_EVENTS}
 };
 newGame();
 </script>
