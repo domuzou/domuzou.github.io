@@ -54,6 +54,13 @@
     box-shadow:0 4px 12px rgba(0,0,0,.4);
   }
   #reveal:active{ transform:scale(.96); }
+  #again{
+    font:inherit; font-size:15px; font-weight:700; color:#f2c14e;
+    background:transparent; border:2px solid #f2c14e; border-radius:999px;
+    padding:10px 26px; cursor:pointer; margin-top:14px;
+  }
+  #again:active{ transform:scale(.96); }
+  .hidden{ display:none; }
   .back{
     background:#fffaf0; color:#33302e; transform:rotateY(180deg);
     display:flex; flex-direction:column; align-items:center;
@@ -109,7 +116,8 @@
     </div>
   </div>
 
-  <p class="note">運勢は毎日0時に切り替わるよ</p>
+  <button id="again" type="button" class="hidden">もう一度占う</button>
+  <p class="note">引くたびに結果が変わるよ。何度でも占えるよ</p>
 </div>
 
 <script>
@@ -199,20 +207,30 @@ function todayStr(d){
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 const now = new Date();
-const f = fortuneFor(todayStr(now));
 $('date').textContent = now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日（' + '日月火水木金土'[now.getDay()] + '）';
-$('face').src = FACES[f.faceIndex];
-$('rank').textContent = f.rank;
-$('money').textContent = stars(f.money);
-$('love').textContent = stars(f.love);
-$('health').textContent = stars(f.health);
-$('message').textContent = f.message;
-$('item').textContent = f.item;
-$('color-name').textContent = f.color.name;
-$('dot').style.background = f.color.hex;
-$('reveal').addEventListener('click', () => { $('flipper').classList.add('flipped'); });
+function drawFortune(){
+  return fortuneFor('draw:' + Date.now() + ':' + Math.random());
+}
+function renderFortune(f){
+  $('face').src = FACES[f.faceIndex];
+  $('rank').textContent = f.rank;
+  $('money').textContent = stars(f.money);
+  $('love').textContent = stars(f.love);
+  $('health').textContent = stars(f.health);
+  $('message').textContent = f.message;
+  $('item').textContent = f.item;
+  $('color-name').textContent = f.color.name;
+  $('dot').style.background = f.color.hex;
+}
+renderFortune(drawFortune());
+$('reveal').addEventListener('click', () => { $('flipper').classList.add('flipped'); $('again').classList.remove('hidden'); });
+$('again').addEventListener('click', () => {
+  $('flipper').classList.remove('flipped');
+  setTimeout(() => { renderFortune(drawFortune()); $('flipper').classList.add('flipped'); }, 420);
+});
 window.URANAI = {
   fortuneFor: fortuneFor,
+  drawFortune: drawFortune,
   POOLS: { messages: MESSAGES, items: ITEMS, colors: COLORS, ranks: RANKS }
 };
 </script>
