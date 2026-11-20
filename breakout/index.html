@@ -25,7 +25,8 @@
     background:#fffdf7; border:3px solid #b3543f; border-radius:14px;
     box-shadow:0 4px 14px rgba(90,40,10,.25); touch-action:none;
   }
-  .btns{ display:flex; justify-content:center; gap:10px; margin-top:13px; }
+  .btns{ display:flex; justify-content:center; gap:10px; margin:6px 0 2px; }
+  .wrap{ touch-action:none; }
   button{
     font:inherit; font-size:14.5px; font-weight:700; color:#fff;
     background:#b3543f; border:none; border-radius:999px; padding:10px 20px; cursor:pointer;
@@ -54,11 +55,11 @@
   </div>
   <div id="msg"></div>
   <div id="fx"></div>
-  <canvas id="cv" width="360" height="480"></canvas>
   <div class="btns">
     <button class="sub" id="restart">🔁 最初から</button>
   </div>
-  <footer>バーをドラッグで動かして、タップでボールを発射！ブロックを壊すとアイテムが落ちてくることがあるよ</footer>
+  <canvas id="cv" width="360" height="480"></canvas>
+  <footer>画面のどこをスライドしてもバーは動くよ（下の余白で操作すると指で隠れないよ）。タップでボールを発射！</footer>
 </div>
 
 <div id="result" class="hidden">
@@ -229,8 +230,10 @@ function updateItems(dt){
   for (var i = items.length - 1; i >= 0; i--) {
     var it = items[i];
     it.y += ITEM_FALL * dt;
-    if (it.y + ITEM_R >= PADDLE_Y && it.y - ITEM_R <= PADDLE_Y + PADDLE_H &&
-        it.x > paddle.x - pw / 2 - ITEM_R && it.x < paddle.x + pw / 2 + ITEM_R) {
+    var rx = Math.max(paddle.x - pw / 2, Math.min(paddle.x + pw / 2, it.x));
+    var ry = Math.max(PADDLE_Y, Math.min(PADDLE_Y + PADDLE_H, it.y));
+    var ddx = it.x - rx, ddy = it.y - ry;
+    if (ddx * ddx + ddy * ddy <= ITEM_R * ITEM_R) {
       applyItem(it.type);
       items.splice(i, 1);
     } else if (it.y - ITEM_R > H) items.splice(i, 1);
@@ -323,8 +326,9 @@ function toLogical(clientX){
   var r = cv.getBoundingClientRect();
   return (clientX - r.left) / r.width * W;
 }
-cv.addEventListener('pointermove', function(e){ movePaddle(toLogical(e.clientX)); });
-cv.addEventListener('pointerdown', function(e){ movePaddle(toLogical(e.clientX)); launch(); });
+function isButton(e){ return !!(e.target && e.target.closest && e.target.closest('button')); }
+document.addEventListener('pointermove', function(e){ if (!isButton(e)) movePaddle(toLogical(e.clientX)); });
+document.addEventListener('pointerdown', function(e){ if (isButton(e)) return; movePaddle(toLogical(e.clientX)); launch(); });
 $('again').addEventListener('click', newGame);
 $('restart').addEventListener('click', newGame);
 
