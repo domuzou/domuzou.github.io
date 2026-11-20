@@ -100,7 +100,7 @@ try { best = JSON.parse(localStorage.getItem(BEST_KEY) || '0') || 0;} catch(e) {
 
 function randStage(){ return (Math.random() * 4) | 0;} /* 落とすのは小さい4種 */
 function addBody(stage, x, y, vx, vy){
-const b = { id:idSeq++, stage, r:RADII[stage], x, y, vx:vx||0, vy:vy||0, born:simTime, overTime:0};
+const b = { id:idSeq++, stage, r:RADII[stage], x, y, vx:vx||0, vy:vy||0, born:simTime, overTime:0, sleep:false, sleepTime:0};
 bodies.push(b); return b;
 }
 function reset(){
@@ -129,11 +129,13 @@ syncHud();
 function physics(dt){
 const G = 2000;
 for (const b of bodies){
+if (b.sleep) continue;
 b.vy += G * dt;
 if (b.vy > 950) b.vy = 950;
 b.x += b.vx * dt; b.y += b.vy * dt;
 }
 for (const b of bodies){
+if (b.sleep) continue;
 if (b.x - b.r < WALL){ b.x = WALL + b.r; b.vx = Math.abs(b.vx) * 0.25;}
 if (b.x + b.r > W - WALL){ b.x = W - WALL - b.r; b.vx = -Math.abs(b.vx) * 0.25;}
 if (b.y + b.r > FLOOR){
@@ -164,6 +166,25 @@ if (d2 >= min*min || d2 === 0) continue;
 const d = Math.sqrt(d2), overlap = (min - d) / 2;
 dx /= d; dy /= d;
 const ma = a.r*a.r, mb = b.r*b.r, mt = ma + mb;
+if (a.sleep || b.sleep){
+if (a.sleep && b.sleep) continue;
+const sleeper = a.sleep ? a : b;
+const awake = a.sleep ? b : a;
+const asp = Math.sqrt(awake.vx*awake.vx + awake.vy*awake.vy);
+if (asp > 240 && awake.r*awake.r >= sleeper.r*sleeper.r * 0.5){
+sleeper.sleep = false; sleeper.sleepTime = 0;
+} else {
+if (a.sleep){ b.x += dx * overlap * 2; b.y += dy * overlap * 2; }
+else { a.x -= dx * overlap * 2; a.y -= dy * overlap * 2; }
+const nx = a.sleep ? dx : -dx, ny = a.sleep ? dy : -dy;
+const vn = awake.vx * nx + awake.vy * ny;
+if (vn < 0){ awake.vx -= nx * vn * 0.55; awake.vy -= ny * vn * 0.55; }
+const tx2 = -ny, ty2 = nx;
+const vt = awake.vx * tx2 + awake.vy * ty2;
+awake.vx -= tx2 * vt * 0.4; awake.vy -= ty2 * vt * 0.4;
+continue;
+}
+}
 a.x -= dx * overlap * 2 * (mb/mt); a.y -= dy * overlap * 2 * (mb/mt);
 b.x += dx * overlap * 2 * (ma/mt); b.y += dy * overlap * 2 * (ma/mt);
 /* 接近方向の速度を均す（跳ね返りほぼなし） */
@@ -187,10 +208,10 @@ if (b.x + b.r > W - WALL) b.x = W - WALL - b.r;
 if (b.y + b.r > FLOOR) b.y = FLOOR - b.r;
 }
 }
-/* 接触中の低速な玉は素早く静止させる（積み上がりが滑って崩れないように） */
+/* 静止が続いた玉は眠らせる（支えが無くなるか合体が起きるまで動かない） */
 for (const b of bodies){
+if (b.sleep) continue;
 const sp2 = b.vx*b.vx + b.vy*b.vy;
-if (sp2 >= 16*16) continue;
 let supported = (b.y + b.r >= FLOOR - 1);
 if (!supported){
 for (const o of bodies){
@@ -199,9 +220,15 @@ const ddx = o.x - b.x, ddy = o.y - b.y, rr = b.r + o.r + 2;
 if (ddy > 0 && ddx*ddx + ddy*ddy < rr*rr){ supported = true; break; }
 }
 }
-if (supported){ b.vx *= 0.8; b.vy *= 0.8; }
+if (supported && sp2 < 14*14){
+b.sleepTime += dt;
+if (b.sleepTime > 0.35){ b.sleep = true; b.vx = 0; b.vy = 0; }
+} else b.sleepTime = 0;
 }
 /* 合体の実行 */
+if (mergePairs.length){
+for (const b of bodies){ b.sleep = false; b.sleepTime = 0; }
+}
 for (const [a, b] of mergePairs){
 if (!bodies.includes(a) ||!bodies.includes(b)) continue;
 const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
