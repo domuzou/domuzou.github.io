@@ -30,7 +30,7 @@
   #hgfill{ background:linear-gradient(90deg,#ffc93f,#ffe95d); width:100%; }
   .bar-row b{ min-width:34px; text-align:left; font-size:11.5px; flex:none; }
   #cv{
-    width:min(392px, 94vw, calc((100dvh - 410px) * 1.444)); aspect-ratio:364/252;
+    width:min(392px, 94vw, calc((100dvh - 437px) * 1.444)); aspect-ratio:364/252;
     display:block; margin:6px auto 0;
     background:#0c0a11; border:3px solid #4a4258; border-radius:12px;
     box-shadow:0 4px 16px rgba(0,0,0,.5); image-rendering:pixelated;
@@ -80,6 +80,11 @@
     <span class="chip">🏯 <b id="depth">1</b>階</span>
     <span class="chip">Lv <b id="lv">1</b></span>
     <span class="chip">⚔️攻撃 <b id="atk">5</b></span>
+  </div>
+  <div class="hud">
+    <span class="chip" id="chip-weapon">⚔️なし</span>
+    <span class="chip" id="chip-shield">🛡️なし</span>
+    <span class="chip hidden" id="chip-effect"></span>
   </div>
   <div class="bars">
     <div class="bar-row"><span class="lbl">HP</span><div class="bar"><div id="hpfill"></div></div><b id="hptext">25/25</b></div>
@@ -189,6 +194,8 @@ function mulberry32(a){
   };
 }
 let rng = mulberry32(12345);
+let forcedEffect;            /* debug hook: effect object (or null) forced on next genFloor */
+let hasForcedEffect = false;
 function ri(a, b){ return a + Math.floor(rng() * (b - a + 1)); }
 function pick(arr){ return arr[Math.floor(rng() * arr.length)]; }
 
@@ -210,6 +217,32 @@ const ITEM_INFO = {
   herb:  {emoji: '🌿', name: '薬草'},
   fruit: {emoji: '💪', name: 'ちからの実'}
 };
+const EQUIP_DEFS = [
+  {key: 'club',          slot: 'weapon', name: 'こん棒',   bonus: 2, dur: 20, tier: 'common'},
+  {key: 'wood_shield',   slot: 'shield', name: '木のたて', bonus: 1, dur: 20, tier: 'common'},
+  {key: 'iron_sword',    slot: 'weapon', name: '鉄の剣',   bonus: 4, dur: 30, tier: 'uncommon'},
+  {key: 'iron_shield',   slot: 'shield', name: '鉄のたて', bonus: 2, dur: 30, tier: 'uncommon'},
+  {key: 'legend_sword',  slot: 'weapon', name: '伝説の剣', bonus: 8, dur: 50, tier: 'ultra'},
+  {key: 'legend_shield', slot: 'shield', name: '伝説のたて', bonus: 4, dur: 50, tier: 'ultra'}
+];
+const FLOOR_EFFECTS = [
+  {key: 'hunger', name: '空腹のフロア', emoji: '🍖', desc: 'いる間はお腹が空きやすい'},
+  {key: 'attack', name: '攻撃のフロア', emoji: '⚔️', desc: 'いる間は攻撃力+3'},
+  {key: 'guard',  name: '守りのフロア', emoji: '🛡️', desc: 'いる間は受けるダメージ-1'},
+  {key: 'heal',   name: '回復のフロア', emoji: '💚', desc: 'いる間は少しずつHPが回復する'},
+  {key: 'demon',  name: '魔物のフロア', emoji: '👹', desc: '魔物が強くなっている'}
+];
+function equipInstance(def){
+  return {key: def.key || null, slot: def.slot, tier: def.tier || null,
+          name: def.name, bonus: def.bonus, dur: def.dur, maxDur: def.maxDur || def.dur};
+}
+function rollEquip(){
+  const r = rng();
+  const tier = r < 0.90 ? 'common' : (r < 0.99 ? 'uncommon' : 'ultra');
+  const slot = rng() < 0.5 ? 'weapon' : 'shield';
+  return equipInstance(EQUIP_DEFS.find(d => d.tier === tier && d.slot === slot));
+}
+function floorEffectKey(){ return (G && G.floorEffect) ? G.floorEffect.key : null; }
 const DIRS8 = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
 
 /* ---- state ---- */
@@ -303,8 +336,28 @@ function genFloor(){
     const pos = freeTile(1);
     if (!pos) break;
     const r = rng();
-    const kind = r < 0.15 ? 'bread' : (r < 0.6 ? 'herb' : (r < 0.8 ? 'fruit' : null));
-    if (kind) G.items.push({x: pos.x, y: pos.y, kind});
+    if (r < 0.05){
+      G.items.push({x: pos.x, y: pos.y, kind: 'equip', equip: rollEquip()});
+    } else {
+      const kind = r < 0.20 ? 'bread' : (r < 0.65 ? 'herb' : (r < 0.85 ? 'fruit' : null));
+      if (kind) G.items.push({x: pos.x, y: pos.y, kind});
+    }
+  }
+  /* random floor effect: 20% chance, lasts only this floor */
+  if (hasForcedEffect){
+    G.floorEffect = forcedEffect;
+    hasForcedEffect = false;
+    forcedEffect = undefined;
+  } else if (rng() < 0.2){
+    G.floorEffect = pick(FLOOR_EFFECTS);
+  } else {
+    G.floorEffect = null;
+  }
+  if (G.floorEffect){
+    log('✨ このフロアは【' + G.floorEffect.name + '】だ！ ' + G.floorEffect.desc);
+    if (G.floorEffect.key === 'demon'){
+      for (const e of G.enemies){ e.hp += 5; e.maxHp += 5; e.atk += 1; }
+    }
   }
 }
 
@@ -314,6 +367,7 @@ function newGame(seed){
     depth: 1, turn: 0, over: false, deathReason: '',
     player: {x: 1, y: 1, hp: 25, maxHp: 25, lv: 1, atk: 5, exp: 0, hunger: 100, dir: 'down'},
     inv: {bread: 1, herb: 0, fruit: 0},
+    weapon: null, shield: null, floorEffect: null,
     kills: 0, log: [], map: [], rooms: [], enemies: [], items: [], stairs: {x: 0, y: 0}
   };
   genFloor();
@@ -342,7 +396,7 @@ function gainExp(n){
 }
 function attackEnemy(e){
   const p = G.player;
-  const dmg = p.atk + ri(0, 2);
+  const dmg = p.atk + (G.weapon ? G.weapon.bonus : 0) + (floorEffectKey() === 'attack' ? 3 : 0) + ri(0, 2);
   e.hp -= dmg;
   sfxSwing();
   if (e.hp <= 0){
@@ -353,6 +407,14 @@ function attackEnemy(e){
     gainExp(e.exp);
   } else {
     log('⚔️ ' + e.name + 'に ' + dmg + ' ダメージ！');
+  }
+  if (G.weapon){
+    G.weapon.dur--;
+    if (G.weapon.dur <= 0){
+      log('⚔️ ' + G.weapon.name + 'が壊れた！');
+      G.weapon = null;
+      sfxHit();
+    }
   }
 }
 function gameOver(reason){
@@ -382,10 +444,18 @@ function enemyPhase(){
     const dx = p.x - e.x, dy = p.y - e.y;
     const dist = Math.max(Math.abs(dx), Math.abs(dy));
     if (dist === 1){
-      const dmg = Math.max(1, e.atk + ri(-1, 1));
+      let dmg = Math.max(1, e.atk + ri(-1, 1) - (G.shield ? G.shield.bonus : 0));
+      if (floorEffectKey() === 'guard') dmg = Math.max(1, dmg - 1);
       p.hp -= dmg;
       log('🩸 ' + e.name + 'の攻撃！ ' + dmg + ' ダメージを受けた');
       sfxHit();
+      if (G.shield){
+        G.shield.dur--;
+        if (G.shield.dur <= 0){
+          log('🛡️ ' + G.shield.name + 'が壊れた！');
+          G.shield = null;
+        }
+      }
       if (p.hp <= 0){ gameOver(e.name + 'に倒されてしまった…'); return; }
       continue;
     }
@@ -424,9 +494,11 @@ function enemyPhase(){
 function afterTurn(){
   const p = G.player;
   G.turn++;
-  if (G.turn % 8 === 0 && p.hunger > 0) p.hunger--;
+  const hungerInterval = floorEffectKey() === 'hunger' ? 4 : 8;
+  if (G.turn % hungerInterval === 0 && p.hunger > 0) p.hunger--;
   if (p.hunger > 0){
     if (G.turn % 5 === 0 && p.hp < p.maxHp) p.hp++;
+    if (floorEffectKey() === 'heal' && G.turn % 10 === 0 && p.hp < p.maxHp) p.hp++;
   } else {
     p.hp -= 1;
     log('🍽️ お腹が空いてHPが減っていく…');
@@ -456,7 +528,19 @@ function move(dx, dy){
   const ii = G.items.findIndex(it => it.x === nx && it.y === ny);
   if (ii >= 0){
     const it = G.items[ii];
-    if (G.inv[it.kind] < 9){
+    if (it.kind === 'equip'){
+      const eq = it.equip;
+      const cur = eq.slot === 'weapon' ? G.weapon : G.shield;
+      if (!cur || eq.bonus > cur.bonus || (eq.bonus === cur.bonus && eq.dur > cur.dur)){
+        if (eq.slot === 'weapon') G.weapon = eq; else G.shield = eq;
+        G.items.splice(ii, 1);
+        log((eq.slot === 'weapon' ? '⚔️ ' : '🛡️ ') + eq.name + 'を装備した！ ' +
+            (eq.slot === 'weapon' ? '攻撃+' : '防御+') + eq.bonus + '（耐久' + eq.dur + '）');
+        sfxPickup();
+      } else {
+        log(eq.name + 'があるが、今の装備の方が強い');
+      }
+    } else if (G.inv[it.kind] < 9){
       G.inv[it.kind]++;
       G.items.splice(ii, 1);
       log(ITEM_INFO[it.kind].emoji + ' ' + ITEM_INFO[it.kind].name + 'を拾った！');
@@ -533,6 +617,11 @@ function render(){
   $('depth').textContent = G.depth;
   $('lv').textContent = p.lv;
   $('atk').textContent = p.atk;
+  $('chip-weapon').textContent = G.weapon ? '⚔️' + G.weapon.name + '+' + G.weapon.bonus + ' 残' + G.weapon.dur : '⚔️なし';
+  $('chip-shield').textContent = G.shield ? '🛡️' + G.shield.name + '+' + G.shield.bonus + ' 残' + G.shield.dur : '🛡️なし';
+  const feChip = $('chip-effect');
+  if (G.floorEffect){ feChip.textContent = G.floorEffect.emoji + G.floorEffect.name; feChip.classList.remove('hidden'); }
+  else feChip.classList.add('hidden');
   const bd = bestDepth();
   $('best').textContent = bd > 0 ? bd + '階' : '-';
   $('hptext').textContent = Math.max(0, p.hp) + '/' + p.maxHp;
@@ -590,7 +679,8 @@ function render(){
   for (const it of G.items){
     const ix = (it.x - camX) * TILE, iy = (it.y - camY) * TILE;
     if (ix < -TILE || iy < -TILE || ix >= cv.width || iy >= cv.height) continue;
-    ctx.fillText(ITEM_INFO[it.kind].emoji, ix + TILE / 2, iy + TILE / 2 + 1);
+    const emoji = it.kind === 'equip' ? (it.equip.slot === 'weapon' ? '⚔️' : '🛡️') : ITEM_INFO[it.kind].emoji;
+    ctx.fillText(emoji, ix + TILE / 2, iy + TILE / 2 + 1);
   }
   /* enemies */
   for (const e of G.enemies){
@@ -662,12 +752,14 @@ document.addEventListener('keydown', ev => {
 /* ---- test hooks ---- */
 window.ROGUE = {
   newGame, move, wait: waitTurn, useItem, descend, tileAt,
+  data: {ETYPES, ITEM_INFO, EQUIP_DEFS, FLOOR_EFFECTS},
   camera(){ return {x: lastCam.x, y: lastCam.y, vw: VW, vh: VH}; },
   soundMuted, toggleSound,
   state(){
     return JSON.parse(JSON.stringify({
       depth: G.depth, turn: G.turn, over: G.over, kills: G.kills,
       player: G.player, inv: G.inv, enemies: G.enemies, items: G.items,
+      weapon: G.weapon, shield: G.shield, floorEffect: G.floorEffect,
       stairs: G.stairs, mapW: MW, mapH: MH
     }));
   },
@@ -680,6 +772,30 @@ window.ROGUE = {
       return e;
     },
     placeItem(x, y, kind){ G.items.push({x, y, kind}); },
+    placeEquip(x, y, def){
+      const d = typeof def === 'string' ? EQUIP_DEFS.find(v => v.key === def) : def;
+      const inst = equipInstance(d);
+      G.items.push({x, y, kind: 'equip', equip: inst});
+      return inst;
+    },
+    setWeapon(v){
+      if (v == null){ G.weapon = null; return; }
+      const d = typeof v === 'string' ? EQUIP_DEFS.find(x => x.key === v) : v;
+      G.weapon = equipInstance(Object.assign({}, d, {slot: 'weapon'}));
+    },
+    setShield(v){
+      if (v == null){ G.shield = null; return; }
+      const d = typeof v === 'string' ? EQUIP_DEFS.find(x => x.key === v) : v;
+      G.shield = equipInstance(Object.assign({}, d, {slot: 'shield'}));
+    },
+    setFloorEffect(key){
+      G.floorEffect = key == null ? null : (FLOOR_EFFECTS.find(f => f.key === key) || null);
+    },
+    forceNextFloorEffect(key){
+      hasForcedEffect = true;
+      forcedEffect = key == null ? null : (FLOOR_EFFECTS.find(f => f.key === key) || null);
+    },
+    rollEquip(){ return rollEquip(); },
     clearEnemies(){ G.enemies = []; },
     clearItems(){ G.items = []; },
     give(kind, n){ G.inv[kind] = Math.min(9, G.inv[kind] + (n || 1)); }
