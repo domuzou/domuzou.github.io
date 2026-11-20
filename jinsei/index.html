@@ -44,8 +44,10 @@
   .t-marriage{ background:rgba(255,150,200,.36); }
   .t-house{ background:rgba(120,170,255,.34); }
   .t-gamble{ background:rgba(190,120,255,.34); }
+  .t-date{ background:rgba(255,120,160,.38); }
+  .t-duel{ background:rgba(255,120,60,.38); }
   .t-change{ background:rgba(120,220,210,.30); }
-  .t-job,.t-jobu{ background:rgba(120,170,255,.30); }
+  .t-job,.t-jobu,.t-employ{ background:rgba(120,170,255,.30); }
   .t-bonus{ background:rgba(255,180,220,.34); }
   .t-fork{ background:rgba(255,255,255,.30); }
   .t-start{ background:rgba(255,255,255,.38); }
@@ -179,7 +181,11 @@ const START_MONEY = 100000;   /* 初期の所持金 */
 const TUITION     = 80000;    /* 大学の授業料（分岐で支払い） */
 const BAITO_PAY   = 30000;    /* 職業がない時の給料日（アルバイト代） */
 const GIFT        = 30000;    /* 結婚の祝儀（相手が払う） */
-const CHILD_BONUS = 10000;    /* 出産祝い（銀行から） */
+const CHILD_BONUS = 10000;    /* 出産祝い（相手が払う） */
+const DUEL_STAKE  = 50000;    /* 勝負マスで相手から奪う金額 */
+const LOAN_RATE   = 1.2;      /* 割賦購入の総額倍率 */
+const LOAN_REPAY  = 50000;    /* 給料日ごとのローン自動返済額 */
+const JOBLESS_PAY = 20000;    /* 無職で仕事マスに止まった時のバイト代 */
 const CHILD_VALUE = 300000;   /* 精算時の子供1人の価値 */
 
 const JOBS_NORMAL = [
@@ -219,6 +225,82 @@ const UNLUCKY = [
   {text: 'スマホを落として修理', amt: -50000},
   {text: '罰金の支払い', amt: -30000}
 ];
+/* 子供マス（未婚・交際中）：近所の子供にまつわる小イベント */
+const CHILD_SINGLE = [
+  {text: '知人に子供が生まれたので出産祝いを包んだ', amt: -10000},
+  {text: '近所の子供たちにお菓子を買ってあげた', amt: -3000},
+  {text: '近所の子供たちと遊んでほっこりした', amt: 0},
+  {text: '近所の子供に懐かれて、手作りのお礼をもらった', amt: 1000}
+];
+
+/* 仕事マスのイベント：職業ごとに 2〜3 件。mult は給料の倍率、raise は恒常的な昇給額 */
+const JOB_EVENTS = {
+  '会社員': [
+    {text: '昇給！ 係長に昇進した', raise: 20000},
+    {text: 'プロジェクト成功でボーナス', mult: 0.5},
+    {text: '飲み会続きで出費がかさんだ', mult: -0.2}
+  ],
+  '店長': [
+    {text: '店の売上が好調でボーナス', mult: 0.5},
+    {text: '常連客が増えて臨時収入', mult: 0.3},
+    {text: '万引き被害の補填で出費', mult: -0.4}
+  ],
+  'トラック運転手': [
+    {text: '長距離便の特別手当', mult: 0.4},
+    {text: '無事故ボーナス', mult: 0.3},
+    {text: '車両の故障で修理費', mult: -0.5}
+  ],
+  '看護師': [
+    {text: '夜勤手当がどっさり', mult: 0.5},
+    {text: '患者さんからの感謝で報奨金', mult: 0.3},
+    {text: '体調を崩して休み、給料が減った', mult: -0.3}
+  ],
+  '公務員': [
+    {text: '期末手当（ボーナス）', mult: 0.6},
+    {text: '残業代がついた', mult: 0.2},
+    {text: '異動で引っ越し費用', mult: -0.3}
+  ],
+  'デザイナー': [
+    {text: 'コンペで優勝して賞金', mult: 0.8},
+    {text: '副業の依頼が来た', mult: 0.4},
+    {text: 'PCが壊れて買い替え', mult: -0.5}
+  ],
+  '医者': [
+    {text: '難しい手術が成功して特別手当', mult: 0.5},
+    {text: '学会発表で研究費', mult: 0.3},
+    {text: '医療ミスの示談金', mult: -0.8}
+  ],
+  '経営者': [
+    {text: '新規事業が大当たり', mult: 1.0},
+    {text: '株の配当金', mult: 0.4},
+    {text: '取引先の倒産で貸し倒れ', mult: -1.0}
+  ],
+  'パイロット': [
+    {text: '国際線の特別手当', mult: 0.5},
+    {text: 'フライト手当が増えた', mult: 0.3},
+    {text: '訓練費用の自己負担分', mult: -0.3}
+  ],
+  '弁護士': [
+    {text: '大きな案件に勝訴して成功報酬', mult: 0.8},
+    {text: '難しい裁判をまとめて報酬', mult: 0.4},
+    {text: '敗訴で依頼が減って収入減', mult: -0.4}
+  ],
+  'ITエンジニア': [
+    {text: '昇給！ チームリーダーに昇進', raise: 20000},
+    {text: 'バグ修正の特別ボーナス', mult: 0.4},
+    {text: '自腹で機材を買い足した', mult: -0.2}
+  ],
+  '大学教授': [
+    {text: '著書の印税', mult: 0.5},
+    {text: '研究費から報奨金', mult: 0.3},
+    {text: '学会の出張費が自腹に', mult: -0.2}
+  ]
+};
+const JOB_EVENTS_FALLBACK = [
+  {text: '仕事で臨時収入', mult: 0.4},
+  {text: '仕事のトラブルで出費', mult: -0.3}
+];
+
 /* マス定義： t は種類, icon/label は表示用（盤面座標は COORDS で経路順に付与。r/c は旧グリッド互換のため残置） */
 const NODES = {
   0:{r:0,c:0,t:'start',icon:'🏁',label:'スタート'},
@@ -236,48 +318,48 @@ const NODES = {
   12:{r:3,c:5,t:'jobu',icon:'🎓',label:'卒業'},
   13:{r:1,c:4,t:'plain',icon:'🏢',label:'研修',text:'研修を受けた'},
   14:{r:2,c:4,t:'payday',icon:'💴',label:'給料日'},
-  15:{r:2,c:3,t:'job',icon:'💼',label:'就職'},
+  15:{r:2,c:3,t:'employ',icon:'💼',label:'就職'},
   20:{r:3,c:4,t:'plain',icon:'🤝',label:'合流',text:'みんなと合流した'},
   21:{r:3,c:3,t:'payday',icon:'💴',label:'給料日'},
-  22:{r:3,c:2,t:'lucky',icon:'🍀',label:'幸運'},
-  23:{r:3,c:1,t:'gamble',icon:'🎰',label:'勝負'},
+  22:{r:3,c:2,t:'date',icon:'❤️',label:'デート'},
+  23:{r:3,c:1,t:'gamble',icon:'🎰',label:'ギャンブル'},
   24:{r:3,c:0,t:'child',icon:'👶',label:'子供'},
   25:{r:4,c:0,t:'unlucky',icon:'💸',label:'出費'},
   26:{r:4,c:1,t:'payday',icon:'💴',label:'給料日'},
-  27:{r:4,c:2,t:'marriage',icon:'💒',label:'結婚'},
-  28:{r:4,c:3,t:'lucky',icon:'🍀',label:'幸運'},
+  27:{r:4,c:2,t:'marriage',icon:'💕',label:'恋愛'},
+  28:{r:4,c:3,t:'job',icon:'🧑‍💼',label:'仕事'},
   29:{r:4,c:4,t:'house',icon:'🏠',label:'家'},
   30:{r:4,c:5,t:'unlucky',icon:'💸',label:'出費'},
   31:{r:4,c:6,t:'child',icon:'👶',label:'子供'},
   32:{r:4,c:7,t:'payday',icon:'💴',label:'給料日'},
   33:{r:5,c:7,t:'change',icon:'🔄',label:'転職'},
-  34:{r:5,c:6,t:'lucky',icon:'🍀',label:'幸運'},
-  35:{r:5,c:5,t:'unlucky',icon:'💸',label:'出費'},
+  34:{r:5,c:6,t:'date',icon:'❤️',label:'デート'},
+  35:{r:5,c:5,t:'duel',icon:'⚔️',label:'勝負'},
   36:{r:5,c:4,t:'payday',icon:'💴',label:'給料日'},
-  37:{r:5,c:3,t:'gamble',icon:'🎰',label:'勝負'},
+  37:{r:5,c:3,t:'gamble',icon:'🎰',label:'ギャンブル'},
   38:{r:5,c:2,t:'child',icon:'👶',label:'子供'},
   39:{r:5,c:1,t:'house',icon:'🏠',label:'家'},
   40:{r:5,c:0,t:'unlucky',icon:'💸',label:'出費'},
   41:{r:6,c:0,t:'payday',icon:'💴',label:'給料日'},
-  42:{r:6,c:1,t:'marriage',icon:'💒',label:'結婚'},
-  43:{r:6,c:2,t:'lucky',icon:'🍀',label:'幸運'},
-  44:{r:6,c:3,t:'unlucky',icon:'💸',label:'出費'},
+  42:{r:6,c:1,t:'marriage',icon:'💕',label:'恋愛'},
+  43:{r:6,c:2,t:'job',icon:'🧑‍💼',label:'仕事'},
+  44:{r:6,c:3,t:'date',icon:'❤️',label:'デート'},
   45:{r:6,c:4,t:'payday',icon:'💴',label:'給料日'},
   46:{r:6,c:5,t:'child',icon:'👶',label:'子供'},
-  47:{r:6,c:6,t:'gamble',icon:'🎰',label:'勝負'},
+  47:{r:6,c:6,t:'gamble',icon:'🎰',label:'ギャンブル'},
   48:{r:6,c:7,t:'lucky',icon:'🍀',label:'幸運'},
   49:{r:7,c:7,t:'payday',icon:'💴',label:'給料日'},
   50:{r:7,c:6,t:'change',icon:'🔄',label:'転職'},
   51:{r:7,c:5,t:'unlucky',icon:'💸',label:'出費'},
   52:{r:7,c:4,t:'house',icon:'🏠',label:'家'},
-  53:{r:7,c:3,t:'lucky',icon:'🍀',label:'幸運'},
+  53:{r:7,c:3,t:'duel',icon:'⚔️',label:'勝負'},
   54:{r:7,c:2,t:'child',icon:'👶',label:'子供'},
   55:{r:7,c:1,t:'payday',icon:'💴',label:'給料日'},
   56:{r:7,c:0,t:'unlucky',icon:'💸',label:'出費'},
   57:{r:8,c:0,t:'lucky',icon:'🍀',label:'幸運'},
   58:{r:8,c:1,t:'payday',icon:'💴',label:'給料日'},
-  59:{r:8,c:2,t:'gamble',icon:'🎰',label:'勝負'},
-  60:{r:8,c:3,t:'unlucky',icon:'💸',label:'出費'},
+  59:{r:8,c:2,t:'gamble',icon:'🎰',label:'ギャンブル'},
+  60:{r:8,c:3,t:'job',icon:'🧑‍💼',label:'仕事'},
   61:{r:8,c:4,t:'plain',icon:'🍵',label:'休憩',text:'のんびり休憩した'},
   62:{r:8,c:5,t:'lucky',icon:'🍀',label:'幸運'},
   63:{r:8,c:6,t:'payday',icon:'💴',label:'給料日'},
@@ -289,7 +371,7 @@ const JOBR   = [13, 14, 15];
 const MAIN   = [];
 for (let i = 20; i <= 64; i++) MAIN.push(i);
 /* 通り過ぎても必ず止まるマス */
-const MUST_STOP = {fork: 1, job: 1, jobu: 1, marriage: 1, house: 1, goal: 1};
+const MUST_STOP = {fork: 1, employ: 1, jobu: 1, marriage: 1, house: 1, goal: 1};
 
 /* 横ストリップ盤面の座標： x = 経路順の列, lane 1 = 本線（就職ルート含む）, lane 0 = 大学ルート */
 const CELL_W = 46, LANE_H = 54;
@@ -315,8 +397,8 @@ const WAIT_MS = 2000;   /* イベント結果を確認するための停止時�
 const STEP_MS = 420;    /* コマが1マス進む間隔 */
 
 function newPlayer(name){
-  return {name: name, money: START_MONEY, job: null, married: false, children: 0,
-          house: null, route: null, degree: false, pos: 0, goaled: false};
+  return {name: name, money: START_MONEY, job: null, partner: 'none', affection: 0, children: 0,
+          house: null, loan: 0, route: null, degree: false, pos: 0, goaled: false};
 }
 function newGame(){
   players = [newPlayer('あなた'), newPlayer('CPU')];
@@ -326,7 +408,7 @@ function newGame(){
   lastEvent = null;
   $('result').classList.add('hidden');
   $('rnum').textContent = '?';
-  log('分岐では大学（上の青レーン）か就職（下の本線）かを選ぶよ。就職・結婚・家・ゴールは必ず止まるマス。精算：資産 ＝ 所持金 ＋ 家の価値 ＋ 子供1人につき ¥300,000');
+  log('分岐では大学（上の青レーン）か就職（下の本線）かを選ぶよ。就職・恋愛・家・ゴールは必ず止まるマス。給料日は通過でももらえて、ぴったり止まると2倍。精算：資産 ＝ 所持金 ＋ 家の価値 − ローン残高 ＋ 子供1人につき ¥300,000');
   log('ゲームスタート！ まずは分岐で進路を決めよう');
   render();
 }
@@ -369,11 +451,114 @@ function applyMove(p, roll){
   }
   return visited;
 }
+/* 給料の支払い：通過は1倍、ぴったり停止は2倍。支払いのたびにローンを自動返済する */
+function repayLoan(p){
+  if (!p.loan || p.loan <= 0) return;
+  const rep = Math.min(LOAN_REPAY, p.loan);
+  p.loan -= rep;
+  p.money -= rep;
+  log(p.name + '： 🏦 ローン返済 -' + fmt(rep) + '（残高 ' + fmt(p.loan) + '）', 'neutral');
+}
+function paySalary(p, exact){
+  const base = p.job ? p.job.salary : BAITO_PAY;
+  const amt = exact ? base * 2 : base;
+  p.money += amt;
+  if (exact) log(p.name + '： 💴 給料日にぴったり！ ぴったりボーナスで2倍 +' + fmt(amt) + (p.job ? '' : '（アルバイト代）'), 'good');
+  else log(p.name + '： 💴 給料日を通過 +' + fmt(amt) + (p.job ? '' : '（アルバイト代）'), 'good');
+  sfxPay();
+  repayLoan(p);
+}
 function doMove(p, roll){
   const visited = applyMove(p, roll);
-  const nd = NODES[routeOf(p)[p.pos]];
+  const route = routeOf(p);
+  const nd = NODES[route[p.pos]];
   log(p.name + '： ルーレット ' + roll + ' → ' + nd.icon + ' ' + nd.label);
+  visited.forEach(v => {
+    if (NODES[route[v]].t === 'payday') paySalary(p, v === p.pos);
+  });
   return visited;
+}
+/* ---- 恋愛（結婚マス）：出会い → デートで好感度 → プロポーズ ---- */
+function romanceStop(p){
+  const idx = players.indexOf(p);
+  const opp = players[1 - idx];
+  if (p.partner === 'married'){
+    log(p.name + '： 💕 夫婦仲良く暮らしている', 'neutral');
+  } else if (p.partner === 'none'){
+    p.partner = 'dating';
+    p.affection = 30;
+    log(p.name + '： 💕 素敵な人と出会った！ 交際スタート（好感度30）', 'good'); sfxGood();
+  } else if (p.affection < 50){
+    p.affection = Math.min(100, p.affection + 20);
+    log(p.name + '： 💕 デートした（好感度 ' + p.affection + '）', 'good'); sfxGood();
+  } else {
+    const roll = nextRoll();
+    if (roll >= 4){
+      p.partner = 'married';
+      log(p.name + '： 💍 プロポーズ成功！（ダイス ' + roll + '）結婚した！', 'good');
+      opp.money -= GIFT;
+      p.money += GIFT;
+      log(p.name + '： 💒 ' + opp.name + 'からご祝儀 ' + fmt(GIFT) + ' をもらった（' + opp.name + ' ' + fmt(-GIFT) + '）', 'good');
+      sfxGoal();
+    } else {
+      p.affection = Math.max(0, p.affection - 10);
+      log(p.name + '： 💔 プロポーズ失敗…（ダイス ' + roll + '）好感度 ' + p.affection + ' に下がった', 'bad'); sfxBad();
+    }
+  }
+  render();
+}
+/* ---- デートマス ---- */
+function dateStop(p){
+  if (p.partner === 'married'){
+    p.money += 10000;
+    log(p.name + '： ❤️ 夫婦で外食券が当たった！ +' + fmt(10000), 'good'); sfxGood();
+  } else if (p.partner === 'dating'){
+    p.affection = Math.min(100, p.affection + 20);
+    log(p.name + '： ❤️ デートした（好感度 ' + p.affection + '）', 'good'); sfxGood();
+  } else {
+    p.partner = 'dating';
+    p.affection = 20;
+    log(p.name + '： ❤️ 素敵な出会いがあった！ 交際スタート（好感度20）', 'good'); sfxGood();
+  }
+  render();
+}
+/* ---- 勝負マス（対人ダイス対決） ---- */
+function duelStop(p){
+  const idx = players.indexOf(p);
+  const opp = players[1 - idx];
+  const r1 = nextRoll(), r2 = nextRoll();
+  if (r1 === r2){
+    log(p.name + '： ⚔️ ' + opp.name + 'と勝負！ ダイス ' + r1 + ' 対 ' + r2 + ' で引き分け', 'neutral');
+  } else if (r1 > r2){
+    p.money += DUEL_STAKE;
+    opp.money -= DUEL_STAKE;
+    log(p.name + '： ⚔️ ' + opp.name + 'と勝負！ ダイス ' + r1 + ' 対 ' + r2 + ' で勝利！ ' + opp.name + 'から ' + fmt(DUEL_STAKE) + ' を奪った', 'good'); sfxGood();
+  } else {
+    p.money -= DUEL_STAKE;
+    opp.money += DUEL_STAKE;
+    log(p.name + '： ⚔️ ' + opp.name + 'と勝負！ ダイス ' + r1 + ' 対 ' + r2 + ' で敗北… ' + fmt(DUEL_STAKE) + ' を取られた', 'bad'); sfxBad();
+  }
+  render();
+}
+/* ---- 仕事マス（現在の職業に応じたイベント） ---- */
+function jobEvent(p){
+  if (!p.job){
+    p.money += JOBLESS_PAY;
+    log(p.name + '： 🧑‍💼 バイトが忙しくてバイト代 +' + fmt(JOBLESS_PAY), 'good'); sfxPay();
+    render(); return;
+  }
+  const list = JOB_EVENTS[p.job.name] || JOB_EVENTS_FALLBACK;
+  const e = pick(list);
+  if (e.raise){
+    p.job.salary += e.raise;
+    log(p.name + '： 🧑‍💼 ' + e.text + '！ 給料が ' + fmt(p.job.salary) + ' に上がった', 'good'); sfxGood();
+  } else {
+    const amt = Math.round(p.job.salary * e.mult / 10000) * 10000;
+    p.money += amt;
+    log(p.name + '： 🧑‍💼 【' + p.job.name + '】' + e.text + ' ' + (amt >= 0 ? '+' : '') + fmt(amt), amt >= 0 ? 'good' : 'bad');
+    if (amt >= 0) sfxGood(); else sfxBad();
+  }
+  render();
 }
 function resolveLanding(p){
   const idx = players.indexOf(p);
@@ -387,11 +572,8 @@ function resolveLanding(p){
     case 'bonus':
       p.money += nd.amt;
       log(p.name + '： ' + nd.text + ' +' + fmt(nd.amt), 'good'); sfxGood(); break;
-    case 'payday': {
-      const pay = p.job ? p.job.salary : BAITO_PAY;
-      p.money += pay;
-      log(p.name + '： 給料日！ ' + (p.job ? '' : '（アルバイト代）') + '+' + fmt(pay), 'good'); sfxPay(); break;
-    }
+    case 'payday':
+      break; /* 支払いは doMove で通過／ぴったり時に処理済み */
     case 'lucky': {
       const e = pick(LUCKY);
       p.money += e.amt;
@@ -402,16 +584,36 @@ function resolveLanding(p){
       p.money += e.amt;
       log(p.name + '： 💸 ' + e.text + ' ' + fmt(e.amt), 'bad'); sfxBad(); break;
     }
-    case 'child':
-      p.children++;
-      p.money += CHILD_BONUS;
-      log(p.name + '： 👶 子供が生まれた！（' + p.children + '人目）出産祝い +' + fmt(CHILD_BONUS), 'good'); sfxGood(); break;
+    case 'child': {
+      if (p.partner !== 'married'){
+        const e = pick(CHILD_SINGLE);
+        p.money += e.amt;
+        const kind = e.amt > 0 ? 'good' : (e.amt < 0 ? 'bad' : 'neutral');
+        log(p.name + '： 👶 ' + e.text + (e.amt > 0 ? ' +' + fmt(e.amt) : (e.amt < 0 ? ' ' + fmt(e.amt) : '')), kind);
+        if (e.amt > 0) sfxGood(); else if (e.amt < 0) sfxBad();
+      } else {
+        const opp = players[1 - idx];
+        p.children++;
+        log(p.name + '： 👶 子供が生まれた！（' + p.children + '人目）', 'good');
+        opp.money -= CHILD_BONUS;
+        p.money += CHILD_BONUS;
+        log(p.name + '： 🎁 ' + opp.name + 'から出産祝い ' + fmt(CHILD_BONUS) + ' をもらった（' + opp.name + ' ' + fmt(-CHILD_BONUS) + '）', 'good');
+        sfxGood();
+      }
+      break;
+    }
     case 'change':
       p.job = drawJob(p, false);
       log(p.name + '： 🔄 転職した！ 新しい職業は「' + p.job.name + '」（給料 ' + fmt(p.job.salary) + '）', 'neutral'); sfxGood(); break;
-    case 'job':
+    case 'employ':
       p.job = drawJob(p, false);
       log(p.name + '： 💼 就職した！ 職業は「' + p.job.name + '」（給料 ' + fmt(p.job.salary) + '）', 'good'); sfxGood(); break;
+    case 'job':
+      jobEvent(p); break;
+    case 'date':
+      dateStop(p); break;
+    case 'duel':
+      duelStop(p); break;
     case 'jobu':
       p.degree = true;
       p.job = drawJob(p, true);
@@ -420,18 +622,8 @@ function resolveLanding(p){
       if (isCpu) applyFork(p, rf() < 0.55 ? 'uni' : 'job');
       else { pending = {type: 'fork'}; log(p.name + '： 🔀 分岐！ 大学へ行くか、すぐ就職するか選んでね', 'neutral'); }
       break;
-    case 'marriage': {
-      if (!p.married){
-        p.married = true;
-        const opp = players[1 - idx];
-        opp.money -= GIFT;
-        p.money += GIFT;
-        log(p.name + '： 💒 結婚した！ ' + opp.name + 'から祝儀 ' + fmt(GIFT) + ' をもらった', 'good'); sfxGood();
-      } else {
-        log(p.name + '： 💒 もう結婚している', 'neutral');
-      }
-      break;
-    }
+    case 'marriage':
+      romanceStop(p); break;
     case 'house':
       if (p.house) log(p.name + '： 🏠 もう家を持っている（' + p.house.name + '）', 'neutral');
       else if (isCpu) cpuHouse(p);
@@ -467,29 +659,45 @@ function chooseFork(routeName){
   enterWait();
 }
 /* ---- house ---- */
-function applyHouse(p, tierIdx){
+function houseTotal(h){ return Math.round(h.price * LOAN_RATE / 10000) * 10000; }
+function houseDown(h){ return houseTotal(h) / 2; }
+function applyHouse(p, tierIdx, method){
   if (tierIdx < 0){ log(p.name + '： 🏠 家は買わなかった', 'neutral'); render(); return; }
   const h = HOUSES[tierIdx];
-  p.money -= h.price;
   p.house = {name: h.name, price: h.price};
-  log(p.name + '： 🏠 ' + h.name + 'を買った！ ' + fmt(h.price), 'good'); sfxPay();
+  if (method === 'loan'){
+    const total = houseTotal(h), down = total / 2;
+    p.money -= down;
+    p.loan = total - down;
+    log(p.name + '： 🏠 ' + h.name + 'を割賦で買った！ 頭金 ' + fmt(down) + '（総額 ' + fmt(total) + '、ローン残高 ' + fmt(p.loan) + '）', 'good'); sfxPay();
+  } else {
+    p.money -= h.price;
+    log(p.name + '： 🏠 ' + h.name + 'を買った！ ' + fmt(h.price), 'good'); sfxPay();
+  }
   render();
 }
 function cpuHouse(p){
   if (rf() < 0.5){
     for (let i = HOUSES.length - 1; i >= 0; i--){
-      if (p.money >= HOUSES[i].price){ applyHouse(p, i); return; }
+      if (p.money >= HOUSES[i].price){ applyHouse(p, i, 'full'); return; }
+    }
+    for (let i = HOUSES.length - 1; i >= 0; i--){
+      if (p.money >= houseDown(HOUSES[i])){ applyHouse(p, i, 'loan'); return; }
     }
   }
   log(p.name + '： 🏠 家は買わなかった', 'neutral');
   render();
 }
-function chooseHouse(tierIdx){
+function chooseHouse(tierIdx, method){
   if (!pending || pending.type !== 'house') return;
   const p = players[turn];
   pending = null;
-  if (tierIdx >= 0 && p.money < HOUSES[tierIdx].price) tierIdx = -1;
-  applyHouse(p, tierIdx);
+  if (tierIdx >= 0){
+    const h = HOUSES[tierIdx];
+    if (method === 'loan'){ if (p.money < houseDown(h)) tierIdx = -1; }
+    else if (p.money < h.price) tierIdx = -1;
+  }
+  applyHouse(p, tierIdx, method === 'loan' ? 'loan' : 'full');
   enterWait();
 }
 /* ---- gamble ---- */
@@ -521,7 +729,8 @@ function settle(){
   return players.map(p => {
     const hv = p.house ? p.house.price : 0;
     const cv = p.children * CHILD_VALUE;
-    return {money: p.money, houseValue: hv, childValue: cv, assets: p.money + hv + cv};
+    const loan = p.loan || 0;
+    return {money: p.money, houseValue: hv, childValue: cv, loan: loan, assets: p.money + hv + cv - loan};
   });
 }
 function computeWinner(){
@@ -539,6 +748,7 @@ function endGame(){
     html += '<p>' + (i === 0 ? '🟡 あなた' : '🔵 CPU') + '<br>所持金 ' + fmt(s[i].money) +
             '<br>＋ 家の価値 ' + fmt(s[i].houseValue) +
             '<br>＋ 子供 ' + p.children + '人 ' + fmt(s[i].childValue) +
+            (s[i].loan > 0 ? '<br>− ローン残高 ' + fmt(s[i].loan) : '') +
             '<br>＝ 資産 <b>' + fmt(s[i].assets) + '</b></p>';
   });
   $('r-detail').innerHTML = html;
@@ -615,8 +825,12 @@ function render(){
     const mEl = $(pre + '-money');
     mEl.textContent = fmt(p.money);
     mEl.classList.toggle('neg', p.money < 0);
-    $(pre + '-fam').textContent = (p.married ? '結婚💒' : '独身') + ' / 子供 ' + p.children + '人';
-    $(pre + '-house').textContent = p.house ? p.house.name : 'なし';
+    let fam;
+    if (p.partner === 'married') fam = '💍結婚';
+    else if (p.partner === 'dating') fam = '💑好感度' + p.affection;
+    else fam = '独身';
+    $(pre + '-fam').textContent = fam + ' / 子供 ' + p.children + '人';
+    $(pre + '-house').textContent = p.house ? p.house.name + (p.loan > 0 ? '（ローン ' + fmt(p.loan) + '）' : '') : 'なし';
     $(pre + '-card').classList.toggle('active', turn === i && !over);
     $(pre + '-card').classList.toggle('goaled', p.goaled);
   }
@@ -678,9 +892,12 @@ function renderChoice(){
     box.appendChild(mkBtn('💼 すぐ就職する', () => chooseFork('job'), 'sub'));
   } else if (pending.type === 'house'){
     HOUSES.forEach((h, i) => {
-      const b = mkBtn('🏠 ' + h.name + ' ' + fmt(h.price), () => chooseHouse(i));
-      if (p.money < h.price) b.disabled = true;
-      box.appendChild(b);
+      const b1 = mkBtn('🏠 ' + h.name + ' 一括 ' + fmt(h.price), () => chooseHouse(i, 'full'));
+      if (p.money < h.price) b1.disabled = true;
+      box.appendChild(b1);
+      const b2 = mkBtn('🏠 ' + h.name + ' 割賦 頭金' + fmt(houseDown(h)) + '（総額' + fmt(houseTotal(h)) + '）', () => chooseHouse(i, 'loan'), 'sub');
+      if (p.money < houseDown(h)) b2.disabled = true;
+      box.appendChild(b2);
     });
     box.appendChild(mkBtn('買わない', () => chooseHouse(-1), 'sub'));
   } else if (pending.type === 'gamble'){
@@ -765,7 +982,7 @@ function state(){
     players: players.map(p => ({
       name: p.name, money: p.money,
       job: p.job ? {name: p.job.name, salary: p.job.salary} : null,
-      married: p.married, children: p.children,
+      married: p.partner === 'married', partner: p.partner, affection: p.affection, loan: p.loan, children: p.children,
       house: p.house ? {name: p.house.name, price: p.house.price} : null,
       route: p.route, degree: p.degree, pos: p.pos,
       node: routeOf(p)[p.pos], goaled: p.goaled
@@ -777,7 +994,10 @@ function state(){
   };
 }
 function setPlayer(i, props){
-  if (players[i]) Object.assign(players[i], props);
+  if (!players[i]) return;
+  props = Object.assign({}, props);
+  if ('married' in props){ props.partner = props.married ? 'married' : 'none'; delete props.married; }
+  Object.assign(players[i], props);
   render();
 }
 window.JINSEI = {
@@ -801,7 +1021,7 @@ window.JINSEI = {
   layout: {cellW: CELL_W, laneH: LANE_H, stripW: STRIP_W, maxX: MAX_X},
   soundMuted: soundMuted,
   toggleSound: toggleSound,
-  data: {JOBS_NORMAL: JOBS_NORMAL, JOBS_HIGH: JOBS_HIGH, HOUSES: HOUSES, LUCKY: LUCKY, UNLUCKY: UNLUCKY, NODES: NODES}
+  data: {JOBS_NORMAL: JOBS_NORMAL, JOBS_HIGH: JOBS_HIGH, HOUSES: HOUSES, LUCKY: LUCKY, UNLUCKY: UNLUCKY, CHILD_SINGLE: CHILD_SINGLE, NODES: NODES, JOB_EVENTS: JOB_EVENTS}
 };
 newGame();
 </script>
