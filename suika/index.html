@@ -139,7 +139,7 @@ if (b.x + b.r > W - WALL){ b.x = W - WALL - b.r; b.vx = -Math.abs(b.vx) * 0.25;}
 if (b.y + b.r > FLOOR){
 b.y = FLOOR - b.r;
 if (b.vy > 0) b.vy = 0;
-b.vx *= 0.9; if (Math.abs(b.vx) < 3) b.vx = 0;
+b.vx *= 0.86; if (Math.abs(b.vx) < 4) b.vx = 0;
 }
 if (b.y - b.r < 26){ b.y = 26 + b.r; if (b.vy < 0) b.vy = 0;} /* 天井の安全弁 */
 }
@@ -174,12 +174,32 @@ const imp = -rel * 0.5;
 a.vx -= dx * imp * (mb/mt) * 2 * 0.5; a.vy -= dy * imp * (mb/mt) * 2 * 0.5;
 b.vx += dx * imp * (ma/mt) * 2 * 0.5; b.vy += dy * imp * (ma/mt) * 2 * 0.5;
 }
+/* 玉同士の摩擦：接線方向の相対速度を削って滑りにくくする */
+const tx = -dy, ty = dx;
+const relT = (b.vx - a.vx) * tx + (b.vy - a.vy) * ty;
+const FR = 0.28;
+a.vx += tx * relT * FR * (mb/mt); a.vy += ty * relT * FR * (mb/mt);
+b.vx -= tx * relT * FR * (ma/mt); b.vy -= ty * relT * FR * (ma/mt);
 }
 for (const b of bodies){
 if (b.x - b.r < WALL) b.x = WALL + b.r;
 if (b.x + b.r > W - WALL) b.x = W - WALL - b.r;
 if (b.y + b.r > FLOOR) b.y = FLOOR - b.r;
 }
+}
+/* 接触中の低速な玉は素早く静止させる（積み上がりが滑って崩れないように） */
+for (const b of bodies){
+const sp2 = b.vx*b.vx + b.vy*b.vy;
+if (sp2 >= 16*16) continue;
+let supported = (b.y + b.r >= FLOOR - 1);
+if (!supported){
+for (const o of bodies){
+if (o === b) continue;
+const ddx = o.x - b.x, ddy = o.y - b.y, rr = b.r + o.r + 2;
+if (ddy > 0 && ddx*ddx + ddy*ddy < rr*rr){ supported = true; break; }
+}
+}
+if (supported){ b.vx *= 0.8; b.vy *= 0.8; }
 }
 /* 合体の実行 */
 for (const [a, b] of mergePairs){
