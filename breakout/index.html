@@ -9,7 +9,7 @@
   body{
     font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
     background:linear-gradient(180deg,#ffdfba,#ffc98f); color:#4a3220;
-    min-height:100dvh; padding:12px 10px 18px; user-select:none; -webkit-user-select:none;
+    min-height:100dvh; padding:8px 10px 18px; user-select:none; -webkit-user-select:none;
   }
   .wrap{ max-width:480px; margin:0 auto; text-align:center; }
   h1{ font-size:23px; letter-spacing:.06em; }
@@ -20,12 +20,11 @@
   #msg{ margin-top:8px; font-size:13px; min-height:20px; line-height:1.5; color:#8a4b1d; font-weight:700; }
   #fx{ margin-top:1px; font-size:12px; min-height:17px; line-height:1.4; color:#a35b23; font-weight:700; }
   #cv{
-    width:min(94vw, 380px, max(220px, calc((100dvh - 208px) * 0.75)));
+    width:min(94vw, 380px, max(220px, calc((100dvh - 190px) * 0.75)));
     aspect-ratio:3/4; display:block; margin:8px auto 0;
     background:#fffdf7; border:3px solid #b3543f; border-radius:14px;
     box-shadow:0 4px 14px rgba(90,40,10,.25); touch-action:none;
   }
-  .btns{ display:flex; justify-content:center; gap:10px; margin:6px 0 2px; }
   .wrap{ touch-action:none; }
   button{
     font:inherit; font-size:14.5px; font-weight:700; color:#fff;
@@ -33,6 +32,7 @@
     box-shadow:0 3px 8px rgba(90,40,10,.3);
   }
   button.sub{ background:rgba(255,255,255,.5); color:#7a4326; border:1px solid rgba(179,84,63,.45); box-shadow:none; }
+  button.small{ font-size:12px; padding:5px 12px; }
   button:active{ transform:scale(.96); }
   #result{ position:fixed; inset:0; background:rgba(40,18,4,.72); display:flex; align-items:center; justify-content:center; z-index:10; padding:20px; }
   #result.hidden{ display:none; }
@@ -52,14 +52,12 @@
     <span class="chip">ライフ <b id="lives">3</b></span>
     <span class="chip">レベル <b id="level">1</b></span>
     <span class="chip">ベスト <b id="best">0</b></span>
+    <button class="sub small" id="restart">🔁 最初から</button>
   </div>
   <div id="msg"></div>
   <div id="fx"></div>
-  <div class="btns">
-    <button class="sub" id="restart">🔁 最初から</button>
-  </div>
   <canvas id="cv" width="360" height="480"></canvas>
-  <footer>画面のどこをスライドしてもバーは動くよ（下の余白で操作すると指で隠れないよ）。タップでボールを発射！</footer>
+  <footer>画面のどこをスライドしても、その動きに合わせてバーが動くよ（下の余白だと指で隠れないよ）。タップでボールを発射！</footer>
 </div>
 
 <div id="result" class="hidden">
@@ -82,7 +80,7 @@ var BRICK_W = (W - BRICK_MX * 2 - (COLS - 1) * BRICK_GAP) / COLS;
 var PADDLE_W = 64, PADDLE_H = 10, PADDLE_Y = H - 24;
 var BALL_R = 6, BASE_SPEED = 260;
 var BEST_KEY = 'nanahun-breakout-best-v1';
-var ITEM_R = 11, ITEM_FALL = 150, DROP_CHANCE = 0.22, PADDLE_SPEED = 1500;
+var ITEM_R = 11, ITEM_FALL = 150, DROP_CHANCE = 0.22;
 var ITEM_TYPES = {
   spd:    { glyph: '速', color: '#118ab2', name: 'バー速度アップ！' },
   wide:   { glyph: '大', color: '#06d6a0', name: 'バー拡大！' },
@@ -96,7 +94,7 @@ var DROP_TABLE = ['spd','spd','wide','wide','wide','narrow','narrow','fast','fas
 var score = 0, lives = 3, level = 1, bricks = [], bricksLeft = 0, over = false;
 var running = true, best = 0;
 try { best = +(localStorage.getItem(BEST_KEY) || 0); } catch (e) { best = 0; }
-var paddle = { x: W / 2, target: W / 2 };
+var paddle = { x: W / 2 };
 var items = [], ballMul = 1, timeSec = 0, forcedDrop = null;
 var fx = { wideUntil: -1, narrowUntil: -1, spdUntil: -1 };
 function curPW(){
@@ -133,7 +131,7 @@ function newGame(){
   score = 0; lives = 3; level = 1; over = false;
   items = []; ballMul = 1; timeSec = 0; forcedDrop = null;
   fx.wideUntil = fx.narrowUntil = fx.spdUntil = -1;
-  paddle.x = W / 2; paddle.target = W / 2;
+  paddle.x = W / 2;
   buildBricks(); resetBall();
   $('result').classList.add('hidden');
   updateHUD(); draw();
@@ -146,7 +144,13 @@ function launch(){
   ball.vx = s * Math.sin(a); ball.vy = -s * Math.cos(a);
 }
 function movePaddle(x){
-  paddle.target = Math.max(PADDLE_W / 2 + 2, Math.min(W - PADDLE_W / 2 - 2, x));
+  var pw = curPW();
+  paddle.x = Math.max(pw / 2 + 2, Math.min(W - pw / 2 - 2, x));
+}
+function dragPaddle(dx){
+  var m = timeSec < fx.spdUntil ? 1.6 : 1;
+  var pw = curPW();
+  paddle.x = Math.max(pw / 2 + 2, Math.min(W - pw / 2 - 2, paddle.x + dx * m));
 }
 function setBall(x, y, vx, vy){ ball.x = x; ball.y = y; ball.vx = vx; ball.vy = vy; ball.stuck = false; }
 function setBricksLeft(n){
@@ -242,11 +246,6 @@ function updateItems(dt){
 function step(dt){
   if (over) return;
   timeSec += dt;
-  var pw = curPW();
-  var maxMove = PADDLE_SPEED * (timeSec < fx.spdUntil ? 1.6 : 1) * dt;
-  var pdx = paddle.target - paddle.x;
-  paddle.x += Math.max(-maxMove, Math.min(maxMove, pdx));
-  paddle.x = Math.max(pw / 2 + 2, Math.min(W - pw / 2 - 2, paddle.x));
   updateItems(dt);
   if (ball.stuck) { ball.x = paddle.x; ball.y = PADDLE_Y - BALL_R - 1; updateHUD(); return; }
   var dist = Math.hypot(ball.vx, ball.vy) * dt;
@@ -322,13 +321,18 @@ function showResult(){
   $('r-best').textContent = best;
   $('result').classList.remove('hidden');
 }
-function toLogical(clientX){
-  var r = cv.getBoundingClientRect();
-  return (clientX - r.left) / r.width * W;
-}
 function isButton(e){ return !!(e.target && e.target.closest && e.target.closest('button')); }
-document.addEventListener('pointermove', function(e){ if (!isButton(e)) movePaddle(toLogical(e.clientX)); });
-document.addEventListener('pointerdown', function(e){ if (isButton(e)) return; movePaddle(toLogical(e.clientX)); launch(); });
+var dragOn = false, lastClientX = null;
+function dragTo(clientX){
+  if (lastClientX === null) { lastClientX = clientX; return; }
+  var r = cv.getBoundingClientRect();
+  dragPaddle((clientX - lastClientX) / r.width * W);
+  lastClientX = clientX;
+}
+document.addEventListener('pointerdown', function(e){ if (isButton(e)) return; dragOn = true; lastClientX = e.clientX; launch(); });
+document.addEventListener('pointermove', function(e){ if (isButton(e)) return; if (dragOn || e.pointerType === 'mouse') dragTo(e.clientX); });
+document.addEventListener('pointerup', function(){ dragOn = false; lastClientX = null; });
+document.addEventListener('pointercancel', function(){ dragOn = false; lastClientX = null; });
 $('again').addEventListener('click', newGame);
 $('restart').addEventListener('click', newGame);
 
@@ -360,6 +364,7 @@ window.BREAKOUT = {
   newGame: newGame,
   setBall: setBall,
   movePaddle: movePaddle,
+  dragPaddle: dragPaddle,
   setBricksLeft: setBricksLeft,
   spawnItem: function(type, x, y){ items.push({ type: type, x: x, y: y }); },
   forceDrop: function(type){ forcedDrop = type; },
