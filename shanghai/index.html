@@ -27,14 +27,14 @@ border-radius:10px; padding:6px 10px; max-width:560px; margin:0 auto 8px;
 position:absolute; border-radius:7px; cursor:pointer;
 background:linear-gradient(180deg,#fffdf4 0%,#f3ead2 100%);
 box-shadow:2px 2px 0 #c9b98f, 3px 4px 0 #a08c5e, 5px 8px 10px rgba(0,0,0,.45);
-padding:3px; transition:transform.12s, filter.15s, opacity.18s;
+padding:3px; transition:transform .12s, filter .15s, opacity .18s;
 }
-.tile.face{
+.tile .face{
 width:100%; height:100%; border-radius:4px; overflow:hidden; position:relative;
 border:1px solid rgba(90,70,30,.35); background:#ddd;
 }
 .tile img{ width:100%; height:100%; object-fit:cover; object-position:50% 18%; display:block; pointer-events:none;}
-.tile.badge{
+.tile .badge{
 position:absolute; top:2px; left:2px; min-width:15px; height:15px; padding:0 3px;
 border-radius:8px; color:#fff; font-size:10.5px; font-weight:700; line-height:15px;
 text-align:center; text-shadow:0 1px 2px rgba(0,0,0,.45); pointer-events:none;
@@ -50,12 +50,12 @@ outline:3px solid #ff4fc3; outline-offset:1px; transform:translateY(-3px);
 box-shadow:2px 2px 0 #c9b98f, 3px 4px 0 #a08c5e, 0 0 14px 4px rgba(255,79,195,.75);
 z-index:999!important;
 }
-.tile.hint{ animation:hintpulse.55s ease-in-out 3;}
+.tile.hint{ animation:hintpulse .55s ease-in-out 3;}
 @keyframes hintpulse{
 0%,100%{ outline:3px solid transparent;}
 50%{ outline:3px solid #ffd93d; outline-offset:1px;}
 }
-.tile.shake{ animation:shk.25s ease-in-out 1;}
+.tile.shake{ animation:shk .25s ease-in-out 1;}
 @keyframes shk{ 0%,100%{ margin-left:0;} 25%{ margin-left:-3px;} 75%{ margin-left:3px;}}
 .tile.bye{ transform:scale(.4) rotate(-6deg); opacity:0; pointer-events:none;}
 #banner{
@@ -81,7 +81,7 @@ max-width:340px; width:100%; text-align:center; box-shadow:0 12px 30px rgba(0,0,
 }
 #clear-card h2{ margin:0 0 6px; font-size:21px;}
 #clear-card p{ margin:4px 0; font-size:14px;}
-#clear-card.best{ color:#b8860b; font-weight:700;}
+#clear-card .best{ color:#b8860b; font-weight:700;}
 #clear-card button{
 font:inherit; font-size:15px; border:none; border-radius:999px; padding:10px 22px;
 background:#ff4fc3; color:#fff; font-weight:700; cursor:pointer; margin-top:12px;
