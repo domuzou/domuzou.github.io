@@ -181,7 +181,8 @@ const vn = awake.vx * nx + awake.vy * ny;
 if (vn < 0){ awake.vx -= nx * vn * 0.55; awake.vy -= ny * vn * 0.55; }
 const tx2 = -ny, ty2 = nx;
 const vt = awake.vx * tx2 + awake.vy * ty2;
-awake.vx -= tx2 * vt * 0.4; awake.vy -= ty2 * vt * 0.4;
+const frS = 1 - Math.exp(-8 * dt);
+awake.vx -= tx2 * vt * frS; awake.vy -= ty2 * vt * frS;
 continue;
 }
 }
@@ -198,7 +199,7 @@ b.vx += dx * imp * (ma/mt) * 2 * 0.5; b.vy += dy * imp * (ma/mt) * 2 * 0.5;
 /* 玉同士の摩擦：接線方向の相対速度を削って滑りにくくする */
 const tx = -dy, ty = dx;
 const relT = (b.vx - a.vx) * tx + (b.vy - a.vy) * ty;
-const FR = 0.28;
+const FR = 1 - Math.exp(-6 * dt);   /* 摩擦は時間比例（坂では重力が勝って転がる） */
 a.vx += tx * relT * FR * (mb/mt); a.vy += ty * relT * FR * (mb/mt);
 b.vx -= tx * relT * FR * (ma/mt); b.vy -= ty * relT * FR * (ma/mt);
 }
@@ -212,15 +213,17 @@ if (b.y + b.r > FLOOR) b.y = FLOOR - b.r;
 for (const b of bodies){
 if (b.sleep) continue;
 const sp2 = b.vx*b.vx + b.vy*b.vy;
-let supported = (b.y + b.r >= FLOOR - 1);
-if (!supported){
+let supports = 0;
+let stable = (b.y + b.r >= FLOOR - 1);
 for (const o of bodies){
 if (o === b) continue;
 const ddx = o.x - b.x, ddy = o.y - b.y, rr = b.r + o.r + 2;
-if (ddy > 0 && ddx*ddx + ddy*ddy < rr*rr){ supported = true; break; }
+if (ddy > 0 && ddx*ddx + ddy*ddy < rr*rr){
+supports++;
+if (Math.abs(ddx) < b.r * 0.35) stable = true;
 }
 }
-if (supported && sp2 < 14*14){
+if ((stable || supports >= 2) && sp2 < 14*14){
 b.sleepTime += dt;
 if (b.sleepTime > 0.35){ b.sleep = true; b.vx = 0; b.vy = 0; }
 } else b.sleepTime = 0;
