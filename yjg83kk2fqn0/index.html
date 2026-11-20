@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>アプリ置き場 | domuzou.github.io</title>
+<style>
+  :root{
+    --bg:#f6f3ee; --card:#ffffff; --text:#2b2620; --muted:#8a7f70;
+    --accent:#b3543f; --border:#e5ddd0;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#1d1a17; --card:#2a2521; --text:#f0e9df; --muted:#a2937f; --accent:#e08a6d; --border:#3d362e; }
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    min-height:100vh; padding:32px 16px 48px;
+  }
+  .wrap{ max-width:520px; margin:0 auto; }
+  header{ text-align:center; margin-bottom:28px; }
+  header .mark{ font-size:40px; }
+  header h1{ font-size:24px; letter-spacing:.08em; margin-top:6px; }
+  header p{ color:var(--muted); font-size:13px; margin-top:6px; }
+  .apps{ display:flex; flex-direction:column; gap:14px; }
+  a.app{
+    display:flex; align-items:center; gap:14px;
+    background:var(--card); border:1px solid var(--border); border-radius:16px;
+    padding:16px 18px; text-decoration:none; color:var(--text);
+    box-shadow:0 2px 8px rgba(0,0,0,.05);
+  }
+  a.app:active{ transform:scale(.985); }
+  .app .icon{ font-size:34px; flex:none; }
+  .app .name{ font-size:16px; font-weight:700; line-height:1.4; }
+  .app .desc{ font-size:12.5px; color:var(--muted); margin-top:3px; line-height:1.5; }
+  .app .go{ margin-left:auto; color:var(--accent); font-size:20px; flex:none; }
+  .ext{ font-size:10.5px; color:var(--muted); border:1px solid var(--border); border-radius:6px; padding:1px 5px; margin-left:6px; vertical-align:2px; }
+  footer{ text-align:center; color:var(--muted); font-size:11.5px; margin-top:32px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark">🏠</div>
+    <h1>アプリ置き場</h1>
+    <p>作った Web アプリへの入口だよ</p>
+  </header>
+
+  <div class="apps">
+    <a class="app" href="../puzzle/">
+      <div class="icon">🖼️</div>
+      <div>
+        <div class="name">世界名画コレクション<br>～パズルで見る7分さん～</div>
+        <div class="desc">手書きイラストのスライドパズル（3×4・全8面）</div>
+      </div>
+      <div class="go">›</div>
+    </a>
+
+    <a class="app" href="../solitaire/">
+      <div class="icon">🃏</div>
+      <div>
+        <div class="name">ソリティア<br>～トランプで見る7分さん～</div>
+        <div class="desc">イラスト入りトランプのクロンダイク・ソリティア</div>
+      </div>
+      <div class="go">›</div>
+    </a>
+
+    <a class="app" href="../shanghai/">
+      <div class="icon">🀄</div>
+      <div>
+        <div class="name">上海パズル<br>～牌で見る7分さん～</div>
+        <div class="desc">同じ絵のペアを消していく麻雀パズル（全64枚）</div>
+      </div>
+      <div class="go">›</div>
+    </a>
+
+    <a class="app" href="../suika/">
+      <div class="icon">🍉</div>
+      <div>
+        <div class="name">スイカゲーム<br>～落として育てる7分さん～</div>
+        <div class="desc">同じ顔同士をくっつけて大きくしていく落下パズル</div>
+      </div>
+      <div class="go">›</div>
+    </a>
+
+    <a class="app" href="../colorsing/">
+      <div class="icon">🎤</div>
+      <div>
+        <div class="name">ColorSing 推しポイント管理</div>
+        <div class="desc">推しの月間・旬ごとのポイント管理アプリ</div>
+      </div>
+      <div class="go">›</div>
+    </a>
+  </div>
+
+  <footer>domuzou.github.io</footer>
+</div>
+</body>
+</html>
