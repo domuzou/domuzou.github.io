@@ -218,6 +218,7 @@ const HANDS = ['✊', '✌️', '✋'];
 const HAND_NAMES = ['グー', 'チョキ', 'パー'];
 const ROULETTE = [1, 2, 4, 7, 16, 50];
 const MAX_CHAIN = 5;
+const FEVER_DELAY = 900; /* ms between the win reveal and the fever roulette */
 const LINES = {
   start: [
     'さあ、じゃんけんで勝負だよ！メダル1枚でスタート、手を選んでね。',
@@ -502,6 +503,7 @@ function autoCollect(){
   setVoice('ヤッピー！');
   setResult('🏆 ' + MAX_CHAIN + '連勝で打ち止め！ ' + amt + ' 枚ゲット！');
 }
+function waitMs(ms){ return new Promise(r => setTimeout(r, instant ? 0 : ms)); }
 function runFever(){
   return new Promise(res => {
     G.phase = 'fever';
@@ -562,7 +564,9 @@ async function finishThrow(player, machine, rethrow){
     say('win');
     sndWin();
     if (G.chain === 1){
+      G.phase = 'won';
       render();
+      await waitMs(FEVER_DELAY);
       const val = await runFever();
       G.pending = val;
       setVoice('ヤッピー！');
