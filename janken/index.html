@@ -545,6 +545,7 @@ function runFever(){
 async function finishThrow(player, machine, rethrow){
   G.lastPlayer = player;
   G.lastMachine = machine;
+  G.animating = false;
   setVoice(rethrow ? 'しょー！' : 'ぽん！');
   const diff = (player - machine + 3) % 3;
   let outcome;
@@ -603,7 +604,6 @@ async function finishThrow(player, machine, rethrow){
     checkOver();
   }
   G.lastOutcome = outcome;
-  G.animating = false;
   render();
   return outcome;
 }
