@@ -199,6 +199,8 @@ const LOAN_RATE   = 1.2;      /* 割賦購入の総額倍率 */
 const LOAN_REPAY  = 50000;    /* 給料日ごとのローン自動返済額 */
 const JOBLESS_PAY = 20000;    /* 無職で仕事マスに止まった時のバイト代 */
 const CHILD_VALUE = 300000;   /* 精算時の子供1人の価値 */
+const HOUSE_VALUE_RATE = 1.5; /* 精算時の家の価値倍率（定価×1.5で試算） */
+const LOAN_SETTLE_RATE = 2;   /* 精算時のローン残高の減算倍率（残高×2を引く） */
 const JINMYAKU_GATE = 3;      /* 高給就職に必要な人脈 */
 const JINMYAKU_MAX  = 10;     /* 人脈の上限 */
 const HOUSE_TAX     = 10000;  /* 家を持っている時に家マスで払う固定資産税 */
@@ -454,7 +456,7 @@ function newGame(){
   lastEvent = null;
   $('result').classList.add('hidden');
   $('rnum').textContent = '?';
-  log('受験マスで進路が決まるよ。勉強マスに止まるほど合格ラインが上がるさ。就職・恋愛・家・ゴールは必ず止まるマス。給料日は通過でももらえて、ぴったり止まると2倍。精算：資産 ＝ 所持金 ＋ 家の価値 − ローン残高 ＋ 子供1人につき ¥300,000');
+  log('受験マスで進路が決まるよ。勉強マスに止まるほど合格ラインが上がるさ。就職・恋愛・家・ゴールは必ず止まるマス。給料日は通過でももらえて、ぴったり止まると2倍。精算：資産 ＝ 所持金 ＋ 家の価値（定価×1.5） − ローン残高×2 ＋ 子供1人につき ¥300,000');
   log('ゲームスタート！ まずは勉強して受験に備えよう。大学では人脈を ' + JINMYAKU_GATE + ' 以上にすると高給就職できるよ');
   render();
 }
@@ -809,10 +811,11 @@ function chooseGamble(bet){
 /* ---- settlement ---- */
 function settle(){
   return players.map(p => {
-    const hv = p.house ? p.house.price : 0;
+    const hv = p.house ? Math.round(p.house.price * HOUSE_VALUE_RATE) : 0;
     const cv = p.children * CHILD_VALUE;
     const loan = p.loan || 0;
-    return {money: p.money, houseValue: hv, childValue: cv, loan: loan, assets: p.money + hv + cv - loan};
+    const loanDeduction = loan * LOAN_SETTLE_RATE;
+    return {money: p.money, houseValue: hv, childValue: cv, loan: loan, loanDeduction: loanDeduction, assets: p.money + hv + cv - loanDeduction};
   });
 }
 function computeWinner(){
@@ -828,9 +831,9 @@ function endGame(){
   let html = '';
   players.forEach((p, i) => {
     html += '<p>' + (i === 0 ? '🟡 あなた' : '🔵 CPU') + '<br>所持金 ' + fmt(s[i].money) +
-            '<br>＋ 家の価値 ' + fmt(s[i].houseValue) +
+            '<br>＋ 家の価値（×1.5） ' + fmt(s[i].houseValue) +
             '<br>＋ 子供 ' + p.children + '人 ' + fmt(s[i].childValue) +
-            (s[i].loan > 0 ? '<br>− ローン残高 ' + fmt(s[i].loan) : '') +
+            (s[i].loan > 0 ? '<br>− ローン残高×2 ' + fmt(s[i].loanDeduction) + '（残高 ' + fmt(s[i].loan) + '）' : '') +
             '<br>＝ 資産 <b>' + fmt(s[i].assets) + '</b></p>';
   });
   $('r-detail').innerHTML = html;
