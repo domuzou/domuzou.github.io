@@ -268,6 +268,13 @@ if (!Array.isArray(save.cleared)) save.cleared = [];
 function persist(){
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
 }
+/* 解放状態の修復：クリア済みステージから解放範囲を再計算する。
+   ステージ追加時に「前の最終ステージをクリア済みなのに次が開かない」取り残しを防ぐ */
+if (save.cleared.length){
+  const highest = Math.max.apply(null, save.cleared);
+  const should = Math.min(STAGES.length, highest + 2);
+  if (save.unlocked < should){ save.unlocked = should; persist(); }
+}
 
 /* ===== ゲーム状態 ===== */
 let cur = 0;              // ステージ番号(0始まり)
