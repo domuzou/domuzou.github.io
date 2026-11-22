@@ -58,7 +58,7 @@
   .hud .spacer{ flex:1; }
   #board{
     display:grid; gap:0; width:100%; max-width:480px; margin:0 auto;
-    border:3px solid #6b5d4f; border-radius:8px; overflow:hidden; user-select:none;
+    border:3px solid #6b5d4f; border-radius:8px; overflow:hidden; user-select:none; touch-action:none;
   }
   .cell{
     position:relative; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
@@ -125,7 +125,7 @@
         <b>ルール2</b>：タテの列・ヨコの行にも、1人だけ<br>
         <b>ルール3</b>：7分さん同士はくっつかない（タテ・ヨコ・ナナメ、となり同士はダメ）<br>
         ぜんぶの行・列・エリアに1人ずつ置けたらクリア！ 解き方は論理だけでたどれるよ（当てずっぽうは不要）。<br><br>
-        <b>操作</b>：「✕メモ」モードでマスを押すと、入らない印の✕がつく（もう一度押すと消える）。「7分さん」モードでマスを押すと、そこに置くかどうか判定するよ。<br>
+        <b>操作</b>：「✕メモ」モードでマスを押すと、入らない印の✕がつく（もう一度押すと消える）。指でなぞるようにスライドすると、まとめて✕をつけたり消したりできるよ。「7分さん」モードでマスを押すと、そこに置くかどうか判定するよ。<br>
         <b>ハート</b>：置く場所をまちがえるとハートが1つ減って、そのマスは赤い✕で閉じられる。ハートが0になるとゲームオーバー。<br>
         <b>💡ヒント</b>（ステージごとに3回）：次に分かる一手を、理由つきで教えてくれる。<br>
         <b>✕ヒント</b>（ステージごとに5回）：入らないマス最大3つに、自動で✕をつけてくれる。<br>
@@ -397,6 +397,7 @@ function renderGame(){
   for (let r=0;r<N;r++) for (let c=0;c<N;c++){
     const d = document.createElement("div");
     d.className = "cell";
+    d.dataset.r = r; d.dataset.c = c;
     d.style.background = REGION_COLORS[REG[r][c] % REGION_COLORS.length];
     if (c === N-1 || REG[r][c+1] !== REG[r][c]) d.classList.add("br");
     if (r === N-1 || REG[r+1][c] !== REG[r][c]) d.classList.add("bb");
@@ -414,7 +415,6 @@ function renderGame(){
       d.innerHTML = '<span class="xauto">✕</span>';
     }
     if (hi) d.classList.add(hi[2] === "x" ? "hintHiX" : "hintHi");
-    (function(rr,cc){ d.onclick = function(){ onCell(rr,cc); }; })(r,c);
     board.appendChild(d);
   }
 }
@@ -436,6 +436,71 @@ function onCell(r,c){
     seTap(); renderGame(); return;
   }
   attemptPlace(r,c);
+}
+
+/* ===== ✕スライド入力（なぞってまとめて付ける／消す） ===== */
+let painting = false;      // スライド入力中か
+let paintAdd = true;       // true=✕をつける / false=✕を消す（開始マスの状態で決まる）
+let lastPaintKey = "";
+
+function cellEl(r,c){
+  return document.querySelector('#board .cell[data-r="' + r + '"][data-c="' + c + '"]');
+}
+function paintCell(r,c){
+  const k = key(r,c);
+  if (cats[k] || closed[k]) return;
+  if (paintAdd){ if (crosses[k]) return; crosses[k] = true; }
+  else { if (!crosses[k]) return; delete crosses[k]; }
+  const d = cellEl(r,c);
+  if (d){
+    if (crosses[k]) d.innerHTML = '<span class="x">✕</span>';
+    else {
+      const auto = save.assist ? autoCrossSet() : {};
+      d.innerHTML = auto[k] ? '<span class="xauto">✕</span>' : "";
+    }
+  }
+}
+function boardCellFromPoint(x,y){
+  const el = document.elementFromPoint(x,y);
+  if (!el) return null;
+  const cell = (el.classList && el.classList.contains("cell")) ? el
+             : (el.closest ? el.closest(".cell") : null);
+  if (!cell || !cell.dataset || cell.dataset.r === undefined) return null;
+  return [parseInt(cell.dataset.r,10), parseInt(cell.dataset.c,10)];
+}
+function initBoardInput(){
+  const board = document.getElementById("board");
+  board.addEventListener("pointerdown", function(e){
+    if (!playing) return;
+    const pos = boardCellFromPoint(e.clientX, e.clientY);
+    if (!pos) return;
+    const r = pos[0], c = pos[1], k = key(r,c);
+    if (mode === "cat"){ onCell(r,c); return; }
+    if (cats[k] || closed[k]){ seBad(); return; }
+    hintCells = [];
+    paintAdd = !crosses[k];
+    painting = true;
+    paintCell(r,c);
+    lastPaintKey = k;
+    seTap();
+    e.preventDefault();
+  });
+  window.addEventListener("pointermove", function(e){
+    if (!painting) return;
+    const pos = boardCellFromPoint(e.clientX, e.clientY);
+    if (!pos) return;
+    const k = key(pos[0], pos[1]);
+    if (k === lastPaintKey) return;
+    lastPaintKey = k;
+    paintCell(pos[0], pos[1]);
+  });
+  function endPaint(){
+    if (!painting) return;
+    painting = false;
+    renderGame();
+  }
+  window.addEventListener("pointerup", endPaint);
+  window.addEventListener("pointercancel", endPaint);
 }
 function attemptPlace(r,c){
   const k = key(r,c);
@@ -597,6 +662,7 @@ function doHelp(){
 }
 
 /* 初期表示 */
+initBoardInput();
 renderSelect();
 </script>
 </body>
