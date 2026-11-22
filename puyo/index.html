@@ -26,6 +26,7 @@
   .p{position:absolute;inset:1px;border-radius:50%;background-size:cover;background-position:center;border:3px solid #999;box-shadow:inset -3px -4px 0 rgba(0,0,0,.18),0 1px 2px rgba(0,0,0,.4)}
   .p.t1{border-color:#ef4444}.p.t2{border-color:#3b82f6}.p.t3{border-color:#22c55e}.p.t4{border-color:#eab308}
   .p.fall{filter:brightness(1.12)}
+  .p.ghost{opacity:.3;box-shadow:none;filter:saturate(.6)}
   .p.flash{animation:fl .26s ease-in-out 2}
   @keyframes fl{50%{transform:scale(1.18);filter:brightness(1.9)}}
   #side{display:flex;flex-direction:column;gap:8px;align-items:center}
@@ -120,6 +121,7 @@ function movePiece(dx){if(G.state!=="falling"||!G.piece)return false;var p=G.pie
 function rotatePiece(dw){if(G.state!=="falling"||!G.piece)return false;var p=G.piece;var nd=(p.dir+dw+4)%4;var tries=[[0,0],[-1,0],[1,0],[0,-1],[0,1]];for(var i=0;i<tries.length;i++){var nx=p.ax+tries[i][0],ny=p.ay+tries[i][1];if(canPlace(G.board,nx,ny,nd)){p.ax=nx;p.ay=ny;p.dir=nd;sfx("rot");render();return true;}}return false;}
 function stepDown(){if(G.state!=="falling"||!G.piece)return false;var p=G.piece;if(canPlace(G.board,p.ax,p.ay+1,p.dir)){p.ay++;render();return true;}lockPiece();return false;}
 function hardDrop(){if(G.state!=="falling"||!G.piece)return;var p=G.piece;while(canPlace(G.board,p.ax,p.ay+1,p.dir))p.ay++;render();lockPiece();}
+function ghostPos(){if(!G.piece)return null;var p=G.piece;var gy=p.ay;while(canPlace(G.board,p.ax,gy+1,p.dir))gy++;if(gy===p.ay)return null;var d=DIRS[p.dir];return {ax:p.ax,ay:gy,cx:p.ax+d.x,cy:gy+d.y,ca:p.ca,cc:p.cc};}
 function lockPiece(){var p=G.piece;if(!p)return;var d=DIRS[p.dir];var cx=p.ax+d.x,cy=p.ay+d.y;if(p.ay>=0)G.board[p.ay][p.ax]=p.ca;if(cy>=0&&cy<ROWS)G.board[cy][cx]=p.cc;G.piece=null;sfx("lock");G.state="busy";render();setTimeout(function(){resolveBoard(0);},60);}
 function resolveBoard(chain){settle(G.board);var groups=findGroups(G.board);if(!groups.length){finishResolve(chain);return;}G.flash={};var cells=[];groups.forEach(function(g){g.forEach(function(pt){G.flash[pt[1]*COLS+pt[0]]=1;cells.push(pt);});});render();var n=cells.length;var ch=chain+1;sfx("erase",ch);setTimeout(function(){cells.forEach(function(pt){G.board[pt[1]][pt[0]]=0;});G.flash={};G.erased+=n;G.score+=n*10*chainMult(ch);updLevel();showChain(ch,n);render();setTimeout(function(){resolveBoard(ch);},100);},300);}
 function finishResolve(chain){if(chain>0&&boardEmpty(G.board)){G.score+=3000;showChain(0,0,true);sfx("allclear");}hideChainSoon();updLevel();render();spawnNext();}
@@ -132,7 +134,7 @@ function startLoop(){if(G.timer)clearTimeout(G.timer);var tick=function(){if(G.s
 var cellEls=[];
 function buildBoard(){var bd=document.getElementById("board");for(var i=0;i<ROWS*COLS;i++){var d=document.createElement("div");d.className="cell";if(i===2)d.classList.add("danger");bd.appendChild(d);cellEls.push(d);}}
 function puyoDiv(t,extra){var d=document.createElement("div");d.className="p t"+t+(extra?" "+extra:"");d.style.backgroundImage="url("+FACES[t-1]+")";return d;}
-function render(){if(!G.board)return;var grid=[];var y,x;for(y=0;y<ROWS;y++)for(x=0;x<COLS;x++)grid.push(G.board[y][x]);var falling={};if(G.piece){var p=G.piece,d=DIRS[p.dir];if(p.ay>=0)falling[p.ay*COLS+p.ax]=p.ca;var cy=p.ay+d.y,cx=p.ax+d.x;if(cy>=0)falling[cy*COLS+cx]=p.cc;}for(var i=0;i<ROWS*COLS;i++){var el=cellEls[i];el.innerHTML="";var v=grid[i];if(falling[i])el.appendChild(puyoDiv(falling[i],"fall"));else if(v)el.appendChild(puyoDiv(v,G.flash[i]?"flash":""));}
+function render(){if(!G.board)return;var grid=[];var y,x;for(y=0;y<ROWS;y++)for(x=0;x<COLS;x++)grid.push(G.board[y][x]);var falling={};if(G.piece){var p=G.piece,d=DIRS[p.dir];if(p.ay>=0)falling[p.ay*COLS+p.ax]=p.ca;var cy=p.ay+d.y,cx=p.ax+d.x;if(cy>=0)falling[cy*COLS+cx]=p.cc;}var ghost={};var gp=ghostPos();if(gp){if(gp.ay>=0&&gp.ay<ROWS)ghost[gp.ay*COLS+gp.ax]=gp.ca;if(gp.cy>=0&&gp.cy<ROWS)ghost[gp.cy*COLS+gp.cx]=gp.cc;}for(var i=0;i<ROWS*COLS;i++){var el=cellEls[i];el.innerHTML="";var v=grid[i];if(falling[i])el.appendChild(puyoDiv(falling[i],"fall"));else if(v)el.appendChild(puyoDiv(v,G.flash[i]?"flash":""));else if(ghost[i])el.appendChild(puyoDiv(ghost[i],"ghost"));}
  document.getElementById("score").textContent=G.score;document.getElementById("best").textContent=G.best;document.getElementById("erased").textContent=G.erased;document.getElementById("level").textContent=G.level;
  var nb=document.getElementById("next-box");nb.innerHTML="";for(var k=0;k<2&&k<G.queue.length;k++){var wrap=document.createElement("div");wrap.className="nextpair";for(var j=1;j>=0;j--){var nd=document.createElement("div");nd.className="np t"+G.queue[k][j];nd.style.backgroundImage="url("+FACES[G.queue[k][j]-1]+")";wrap.appendChild(nd);}nb.appendChild(wrap);}}
 var chainTimer=null;
@@ -152,7 +154,7 @@ function initControls(){
 buildBoard();initControls();
 document.getElementById("btn-sound").textContent=sndOn?"🔊":"🔇";
 G.board=emptyBoard();render();
-window.PUYO={G:G,COLS:COLS,ROWS:ROWS,emptyBoard:emptyBoard,canPlace:canPlace,settle:settle,findGroups:findGroups,boardEmpty:boardEmpty,chainMult:chainMult,newGame:newGame,spawnNext:spawnNext,movePiece:movePiece,rotatePiece:rotatePiece,stepDown:stepDown,hardDrop:hardDrop,lockPiece:lockPiece,resolveBoard:resolveBoard,gameOver:gameOver};
+window.PUYO={G:G,COLS:COLS,ROWS:ROWS,emptyBoard:emptyBoard,canPlace:canPlace,settle:settle,findGroups:findGroups,boardEmpty:boardEmpty,chainMult:chainMult,newGame:newGame,spawnNext:spawnNext,movePiece:movePiece,rotatePiece:rotatePiece,stepDown:stepDown,hardDrop:hardDrop,lockPiece:lockPiece,resolveBoard:resolveBoard,gameOver:gameOver,ghostPos:ghostPos};
 </script>
 </body>
 </html>
