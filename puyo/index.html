@@ -36,9 +36,10 @@
   .np{width:30px;height:30px;border-radius:50%;background-size:cover;background-position:center;border:3px solid #999}
   .np.t1{border-color:#ef4444}.np.t2{border-color:#3b82f6}.np.t3{border-color:#22c55e}.np.t4{border-color:#eab308}
   #level{font-size:17px;font-weight:bold}
-  #ctrl{width:100%;max-width:520px;padding:4px 12px 12px;display:grid;grid-template-columns:1fr 1fr 1.2fr 1fr 1fr;gap:8px}
+  #ctrl{width:100%;max-width:520px;padding:4px 12px 12px;display:grid;grid-template-columns:1fr 1fr 1.7fr 1fr;gap:8px}
   .cbtn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:14px;padding:13px 0;font-size:19px;cursor:pointer}
   .cbtn:active{background:rgba(255,255,255,.35);transform:scale(.95)}
+  #btn-rot{font-size:23px;font-weight:bold;background:rgba(245,158,11,.4);border-color:#f59e0b}
   .overlay{position:absolute;inset:0;background:rgba(10,6,30,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;border-radius:12px;text-align:center;padding:16px;z-index:5}
   .overlay h2{font-size:24px}
   .overlay p{font-size:13px;line-height:1.7;opacity:.92}
@@ -84,7 +85,6 @@
   <button class="cbtn" id="btn-left">◀</button>
   <button class="cbtn" id="btn-right">▶</button>
   <button class="cbtn" id="btn-rot">⟳ 回転</button>
-  <button class="cbtn" id="btn-soft">▼</button>
   <button class="cbtn" id="btn-hard">⤓ 落とす</button>
 </div>
 <script>
@@ -145,7 +145,6 @@ function bindTap(id,fn){var el=document.getElementById(id);el.addEventListener("
 function initControls(){
  bindHold("btn-left",function(){movePiece(-1);},95,180);
  bindHold("btn-right",function(){movePiece(1);},95,180);
- bindHold("btn-soft",function(){stepDown();},38,120);
  bindTap("btn-rot",function(){rotatePiece(1);});
  bindTap("btn-hard",function(){hardDrop();});
  document.addEventListener("keydown",function(e){if(G.state!=="falling")return;if(e.key==="ArrowLeft"){movePiece(-1);e.preventDefault();}else if(e.key==="ArrowRight"){movePiece(1);e.preventDefault();}else if(e.key==="ArrowDown"){stepDown();e.preventDefault();}else if(e.key==="ArrowUp"||e.key==="x"){rotatePiece(1);e.preventDefault();}else if(e.key==="z"){rotatePiece(-1);e.preventDefault();}else if(e.key===" "){hardDrop();e.preventDefault();}});
