@@ -26,6 +26,7 @@
   #menu .ttl{font-size:11px;opacity:.75;padding:0 8px 4px}
   .mitem{padding:6px 10px;font-size:14.5px;border-radius:6px;cursor:pointer;white-space:nowrap}
   .mitem.sel,.mitem:active{background:#3450a0}
+  .mitem.sel::before{content:"▶ ";font-size:12px}
   .mitem small{opacity:.75;font-size:11.5px}
   #battle{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:26px;background:linear-gradient(180deg,#1a2a6b,#0b1026 70%);border-radius:8px;z-index:5}
   #mon-emoji{font-size:92px;filter:drop-shadow(0 6px 8px rgba(0,0,0,.6))}
@@ -494,10 +495,15 @@ function toggleSound(){sndOn=!sndOn;try{localStorage.setItem("nanafun-snd-dq1",s
 function say(pages,cb){closeMenu();msgPages=pages.slice();msgCb=cb||null;nextPage();}
 function nextPage(){var t=document.getElementById("msg-text");if(!msgPages||!msgPages.length){t.textContent="";document.getElementById("msg-arrow").style.visibility="hidden";var cb=msgCb;msgCb=null;msgPages=null;if(cb)cb();return;}t.textContent=msgPages.shift();document.getElementById("msg-arrow").style.visibility=msgPages.length?"visible":"hidden";render();}
 function msgBusy(){return !!msgPages;}
-function openMenu(title,items,cb){var m=document.getElementById("menu");document.getElementById("menu-ttl").textContent=title;var box=document.getElementById("menu-items");box.innerHTML="";items.forEach(function(it,i){var d=document.createElement("div");d.className="mitem";d.innerHTML=it.label;d.onclick=function(ev){ev.stopPropagation();closeMenu();cb(i,it);};box.appendChild(d);});m.style.display="block";menuCb=cb;}
-function closeMenu(){document.getElementById("menu").style.display="none";}
+var menuState=null;
+function openMenu(title,items,cb,onCancel){var m=document.getElementById("menu");document.getElementById("menu-ttl").textContent=title;var box=document.getElementById("menu-items");box.innerHTML="";menuState={items:items,sel:0,cb:cb,onCancel:onCancel||null};items.forEach(function(it,i){var d=document.createElement("div");d.className="mitem"+(i===0?" sel":"");d.innerHTML=it.label;d.onclick=function(ev){ev.stopPropagation();selectItem(i);};box.appendChild(d);});m.style.display="block";menuCb=cb;}
+function renderMenuSel(){var box=document.getElementById("menu-items");for(var i=0;i<box.children.length;i++)box.children[i].className="mitem"+(menuState&&i===menuState.sel?" sel":"");}
+function menuNav(d){if(!menuState)return;var n=menuState.items.length;menuState.sel=(menuState.sel+d+n)%n;renderMenuSel();beep(600,0.03,"square",0.02);}
+function selectItem(i){if(!menuState)return;var ms=menuState;closeMenu();ms.cb(i,ms.items[i]);}
+function cancelMenu(){if(!menuState)return;var ms=menuState;closeMenu();if(ms.onCancel)ms.onCancel();}
+function closeMenu(){document.getElementById("menu").style.display="none";menuState=null;}
 function menuOpen(){return document.getElementById("menu").style.display==="block";}
-function choice(labels,cb){openMenu("えらんでください",labels.map(function(l){return {label:l};}),function(i){cb(i);});}
+function choice(labels,cb){openMenu("えらんでください",labels.map(function(l){return {label:l};}),function(i){cb(i);},function(){cb(labels.length-1);});}
 /* ---------- map access ---------- */
 function curGrid(){return G.map==="world"?WORLD_ROWS:MAPS[G.map].grid;}
 function tileAt(x,y){var g=curGrid();if(y<0||y>=g.length||x<0||x>=g[y].length)return "#";return g[y][x];}
@@ -511,7 +517,9 @@ function blocked(x,y){var t=tileAt(x,y);if(G.map==="world"){return t==="~"||t===
  return false;}
 /* ---------- movement ---------- */
 var DIRS=[[0,-1],[1,0],[0,1],[-1,0]];
-function tryMove(d){if(!G||B||msgBusy()||menuOpen()||G.over)return;G.dir=d;var nx=G.x+DIRS[d][0],ny=G.y+DIRS[d][1];
+function tryMove(d){if(titleVisible()){if(d===0)titleNav(-1);else if(d===2)titleNav(1);return;}
+ if(menuOpen()){if(d===0)menuNav(-1);else if(d===2)menuNav(1);return;}
+ if(!G||B||msgBusy()||G.over)return;G.dir=d;var nx=G.x+DIRS[d][0],ny=G.y+DIRS[d][1];
  if(G.map!=="world"){
    var t=tileAt(nx,ny);
    if(t==="D"&&!G.hero.doors[G.map+":"+nx+","+ny]){tryOpenDoor(nx,ny);render();return;}
@@ -605,7 +613,9 @@ function render(){if(!G||!ctx)return;ctx.fillStyle="#000";ctx.fillRect(0,0,480,3
 }
 /* ---------- interact ---------- */
 function facing(){return {x:(G.map==="world"?G.wx:G.x)+DIRS[G.dir][0],y:(G.map==="world"?G.wy:G.y)+DIRS[G.dir][1]};}
-function doA(){if(!G||G.over)return;if(menuOpen())return;if(msgBusy()){nextPage();return;}if(B)return;fieldInteract();}
+function doA(){var rf=document.getElementById("redflash");if(rf.style.display==="block"){var b=rf.querySelector("button");if(b){b.click();}return;}
+ if(titleVisible()){titleConfirm();return;}
+ if(!G||G.over)return;if(menuOpen()){selectItem(menuState.sel);return;}if(msgBusy()){nextPage();return;}if(B)return;fieldInteract();}
 function searchHere(){var h=G.hero;
  if(G.map==="world"){var t=WORLD_ROWS[G.wy][G.wx];
    if(t==="*"&&!h.flags.mark){h.flags.mark=true;addItem("ロトのしるし");sfx("win");say(["なつきは 自分の足元を調べた。","なんと ロトのしるしを みつけた！"],null);return true;}
@@ -639,8 +649,8 @@ function openChest(c){G.hero.opened[chestKey(G.map,c.x,c.y)]=true;sfx("open");
 function openFieldMenu(){if(!G||B||msgBusy()||menuOpen())return;var h=G.hero;
  openMenu("コマンド",[{label:"⚔ つよさ"},{label:"✨ じゅもん"},{label:"🎒 どうぐ"},{label:"🚪 とびら"},{label:"🔍 しらべる"},{label:"💾 セーブ"}],function(i){
   if(i===0){var st=heroStats();say(["なつき LV"+h.lv,"ちから "+st.str+" すばやさ "+st.agi,"攻撃力 "+heroAtk()+"（"+WEAPONS[h.weapon][0]+"）","守備力 "+heroDef()+"（"+ARMORS[h.armor][0]+"／"+SHIELDS[h.shield][0]+"）","経験値 "+h.exp+" 次のレベルまで "+(h.lv>=30?"MAX":(LEVELS[h.lv+1][0]-h.exp))],null);}
-  else if(i===1){var sp=learnedSpells();if(!sp.length){say(["なつきは まだ じゅもんを つかえない。"],null);return;}openMenu("じゅもん",sp.map(function(s){return {label:s+" <small>MP"+SPELLS[s].mp+"</small>"};}),function(j){castFieldSpell(sp[j]);});}
-  else if(i===2){var names=Object.keys(h.items);if(!names.length){say(["つかえるものを まだ もっていない。"],null);return;}openMenu("どうぐ",names.map(function(n){return {label:n+" ×"+h.items[n]};}),function(j){useFieldItem(names[j]);});}
+  else if(i===1){var sp=learnedSpells();if(!sp.length){say(["なつきは まだ じゅもんを つかえない。"],null);return;}openMenu("じゅもん",sp.map(function(s){return {label:s+" <small>MP"+SPELLS[s].mp+"</small>"};}),function(j){castFieldSpell(sp[j]);},function(){openFieldMenu();});}
+  else if(i===2){var names=Object.keys(h.items);if(!names.length){say(["つかえるものを まだ もっていない。"],null);return;}openMenu("どうぐ",names.map(function(n){return {label:n+" ×"+h.items[n]};}),function(j){useFieldItem(names[j]);},function(){openFieldMenu();});}
   else if(i===3){var f=facing();if(G.map!=="world"&&tileAt(f.x,f.y)==="D")tryOpenDoor(f.x,f.y);else say(["ここには 扉がない！"],null);}
   else if(i===4){if(!searchHere())say(["なつきは 自分の足元を 調べた。","しかし なにも みつからなかった。"],null);}
   else{saveGame();say(["セーブしました。（王様に会うと 旅の記録が残ります）"],null);}
@@ -714,7 +724,7 @@ function mapEvent(ev){var h=G.hero;
 function dragonKingEvent(){say(["竜王「よく来た なつきよ。わしが 王の中の王、竜王だ。","「わしは待っておった。そなたのような若者が現れることを…","「もし わしの味方になれば 世界の半分を なつきに やろう。","「どうじゃ？ わしの味方に なるか？"],function(){choice(["はい","いいえ"],function(i){if(i===1){say(["竜王「愚か者め！ 思い知るがよい！"],function(){dkBattle();});}else{say(["竜王「ほんとうだな？"],function(){choice(["はい","いいえ"],function(j){if(j===1){say(["竜王「愚か者め！ 思い知るがよい！"],function(){dkBattle();});}else badEnd();});});}});});}
 function dkBattle(){startBattle("boss_dk1",{boss:true,noRun:true,onWin:function(){say(["竜王を たおした！…と 思った瞬間、","竜王が 正体を 現わした！！"],function(){startBattle("boss_dk2",{boss:true,noRun:true,onWin:function(){winGame();}});});}});}
 function badEnd(){var rf=document.getElementById("redflash");rf.style.display="block";rf.innerHTML="竜王「では 世界の半分、闇の世界を 与えよう！<br><br>「そなたに 復活の呪文を 教えよう！<br>ふめぞもら ろべすちちねふ みやりわげ しには<br><br>「お前の旅は 終わった。さあ ゆっくり休むが良い！<br>わあっはっはっはっ<br><br><button class='bigbtn' onclick='closeBadEnd()'>タイトルへ もどる</button>";G.over=true;sfx("ehit");}
-function closeBadEnd(){document.getElementById("redflash").style.display="none";G.over=false;document.getElementById("ov-title").classList.remove("hidden");if(loadGame())document.getElementById("btn-cont").classList.remove("hidden");}
+function closeBadEnd(){document.getElementById("redflash").style.display="none";document.getElementById("redflash").style.background="#c00";G.over=false;document.getElementById("ov-title").classList.remove("hidden");if(loadGame())document.getElementById("btn-cont").classList.remove("hidden");tSel=0;renderTitleSel();}
 function winGame(){var h=G.hero;h.flags.peace=true;h.hp=heroStats().hpmax;h.mp=heroStats().mpmax;G.map="world";G.wx=49;G.wy=48;G.x=49;G.y=48;saveGame();render();updateStatus();say(["竜王を たおした！","そして 光の玉を 竜王の手から 取りもどした！","あなたが 光の玉を かざすと まばゆいばかりの 光が あふれだす……","この国に 平和が 戻ったのだ。","（ラダトーム城の 王様のところへ 帰ろう）"],null);}
 function endingSeq(){var h=G.hero;var lines=["王様「おお！ なつき！ 全ては 古い言い伝えの ままであった！","「すなわち そなたこそは 勇者ロトの血を引く者！","「わしに代わって この国を 治めてくれるな？","しかし なつきは 言いました。","なつき「いいえ。私の治める国があるなら それは私自身で探したいのです。"];
  if(h.flags.laura_done)lines=lines.concat(["ローラ「待ってくださいませ！","ローラ「その あなたの旅に ローラも お供しとうございます。","ローラ「このローラも 連れてって 下さいますわね？"]);
@@ -734,9 +744,9 @@ function battleCommand(){if(!B)return;var h=G.hero;
  openMenu("コマンド？",[{label:"⚔ たたかう"},{label:"✨ じゅもん"},{label:"🎒 どうぐ"},{label:"🏃 にげる"}],function(i){
   if(i===0)heroAttack();
   else if(i===1){var sp=learnedSpells();if(!sp.length){say(["なつきは まだ じゅもんを つかえない。"],function(){battleCommand();});return;}if(B.heroSealed){say(["なつきの じゅもんは 封じ込まれている！"],function(){battleCommand();});return;}
-   openMenu("じゅもん",sp.map(function(s){return {label:s+" <small>MP"+SPELLS[s].mp+"</small>"};}).concat([{label:"もどる"}]),function(j){if(j>=sp.length){battleCommand();return;}heroSpell(sp[j]);});}
+   openMenu("じゅもん",sp.map(function(s){return {label:s+" <small>MP"+SPELLS[s].mp+"</small>"};}).concat([{label:"もどる"}]),function(j){if(j>=sp.length){battleCommand();return;}heroSpell(sp[j]);},function(){battleCommand();});}
   else if(i===2){var names=Object.keys(G.hero.items);if(!names.length){say(["つかえるものを もっていない。"],function(){battleCommand();});return;}
-   openMenu("どうぐ",names.map(function(n){return {label:n+" ×"+G.hero.items[n]};}).concat([{label:"もどる"}]),function(j){if(j>=names.length){battleCommand();return;}heroItem(names[j]);});}
+   openMenu("どうぐ",names.map(function(n){return {label:n+" ×"+G.hero.items[n]};}).concat([{label:"もどる"}]),function(j){if(j>=names.length){battleCommand();return;}heroItem(names[j]);},function(){battleCommand();});}
   else tryRun();
  });}
 function dmgToEnemy(base,crit){var d=B.def;var dmg;if(crit)dmg=Math.round(heroAtk()*(0.9+Math.random()*0.4));else if(base<=1)dmg=Math.random()<0.5?0:1;else dmg=Math.max(1,Math.round(base*(0.55+Math.random()*0.45)));return dmg;}
@@ -785,20 +795,28 @@ function winBattle(){var d=B.def,h=G.hero;var gold=d[7]+Math.floor(Math.random()
 function checkLevelLines(){var h=G.hero,lines=[];while(h.lv<30&&h.exp>=LEVELS[h.lv+1][0]){var old=LEVELS[h.lv],nw=LEVELS[h.lv+1];h.lv++;lines.push("なつきは レベルが あがった！","ちからが "+(nw[1]-old[1])+"、すばやさが "+(nw[2]-old[2])+"、最大HPが "+(nw[3]-old[3])+"、最大MPが "+(nw[4]-old[4])+" あがった！");SPELL_ORDER.forEach(function(s){if(SPELLS[s].lv===h.lv)lines.push("なつきは "+s+"の じゅもんを 覚えた！");});sfx("lv");}
  if(lines.length){h.hp=Math.min(LEVELS[h.lv][3],h.hp);h.mp=Math.min(LEVELS[h.lv][4],h.mp);}return lines;}
 function checkLevel(){var lines=checkLevelLines();if(lines.length)say(lines,null);updateStatus();}
+/* ---------- title cursor ---------- */
+var tSel=0;
+function titleVisible(){return !document.getElementById("ov-title").classList.contains("hidden");}
+function titleOpts(){var o=["btn-new"];if(loadGame())o.push("btn-cont");return o;}
+function renderTitleSel(){titleOpts().forEach(function(id,i){var el=document.getElementById(id);if(el)el.style.outline=(i===tSel)?"3px solid #fff":"none";});}
+function titleNav(d){var n=titleOpts().length;tSel=(tSel+d+n)%n;renderTitleSel();beep(600,0.03,"square",0.02);}
+function titleConfirm(){var el=document.getElementById(titleOpts()[tSel]);if(el)el.click();}
 /* ---------- input & init ---------- */
 function bindHold(id,fn){var el=document.getElementById(id),timer=null;var start=function(e){e.preventDefault();fn();timer=setInterval(fn,190);};var stop=function(){if(timer)clearInterval(timer);timer=null;};el.addEventListener("pointerdown",start);el.addEventListener("pointerup",stop);el.addEventListener("pointerleave",stop);el.addEventListener("pointercancel",stop);}
 bindHold("dp-up",function(){tryMove(0);});bindHold("dp-down",function(){tryMove(2);});bindHold("dp-left",function(){tryMove(3);});bindHold("dp-right",function(){tryMove(1);});
 document.getElementById("btn-a").addEventListener("click",function(){doA();});
-document.getElementById("btn-b").addEventListener("click",function(){if(msgBusy())return;openFieldMenu();});
+document.getElementById("btn-b").addEventListener("click",function(){if(menuOpen()){cancelMenu();return;}if(msgBusy())return;openFieldMenu();});
 document.getElementById("msgwin").addEventListener("click",function(){if(msgBusy())nextPage();});
-document.addEventListener("keydown",function(e){if(!G)return;var k=e.key;if(k==="ArrowUp"||k==="w"){tryMove(0);e.preventDefault();}else if(k==="ArrowDown"||k==="s"){tryMove(2);e.preventDefault();}else if(k==="ArrowLeft"||k==="a"){tryMove(3);e.preventDefault();}else if(k==="ArrowRight"||k==="d"){tryMove(1);e.preventDefault();}else if(k==="z"||k==="Enter"||k===" "){doA();e.preventDefault();}else if(k==="x"||k==="Escape"){if(!msgBusy())openFieldMenu();}});
+document.addEventListener("keydown",function(e){if(!G)return;var k=e.key;if(k==="ArrowUp"||k==="w"){tryMove(0);e.preventDefault();}else if(k==="ArrowDown"||k==="s"){tryMove(2);e.preventDefault();}else if(k==="ArrowLeft"||k==="a"){tryMove(3);e.preventDefault();}else if(k==="ArrowRight"||k==="d"){tryMove(1);e.preventDefault();}else if(k==="z"||k==="Enter"||k===" "){doA();e.preventDefault();}else if(k==="x"||k==="Escape"){if(menuOpen())cancelMenu();else if(!msgBusy())openFieldMenu();}});
 document.getElementById("btn-sound").textContent=sndOn?"🔊":"🔇";
 G={map:"castle",x:7,y:5,dir:0,wx:29,wy:23,hero:newHero(),steps:0,light:0,repel:0,over:false};
 if(loadGame())document.getElementById("btn-cont").classList.remove("hidden");
+renderTitleSel();
 if(G.hero.flags&&G.hero.flags.bridge)buildBridgeSilent();
 function buildBridgeSilent(){var row=WORLD_ROWS[42];WORLD_ROWS[42]=row.substring(0,44)+"bbb"+row.substring(47);}
 render();updateStatus();
-window.DQ1={ZONES:ZONES,get G(){return G;},get B(){return B;},newGame:newGame,continueGame:continueGame,tryMove:tryMove,doA:doA,startBattle:startBattle,heroAttack:heroAttack,enemyTurn:enemyTurn,winBattle:winBattle,talkNPC:talkNPC,openShop:openShop,castFieldSpell:castFieldSpell,useFieldItem:useFieldItem,heroAtk:heroAtk,heroDef:heroDef,zoneOf:zoneOf,searchHere:searchHere,buildBridge:buildBridge,saveGame:saveGame,loadGame:loadGame,checkLevelLines:checkLevelLines,kingTalk:kingTalk,dragonKingEvent:dragonKingEvent,MAPS:MAPS,MONSTERS:MONSTERS};
+window.DQ1={ZONES:ZONES,get G(){return G;},get B(){return B;},get MENU(){return menuState;},openFieldMenu:openFieldMenu,menuNav:menuNav,selectItem:selectItem,cancelMenu:cancelMenu,titleVisible:titleVisible,newGame:newGame,continueGame:continueGame,tryMove:tryMove,doA:doA,startBattle:startBattle,heroAttack:heroAttack,enemyTurn:enemyTurn,winBattle:winBattle,talkNPC:talkNPC,openShop:openShop,castFieldSpell:castFieldSpell,useFieldItem:useFieldItem,heroAtk:heroAtk,heroDef:heroDef,zoneOf:zoneOf,searchHere:searchHere,buildBridge:buildBridge,saveGame:saveGame,loadGame:loadGame,checkLevelLines:checkLevelLines,kingTalk:kingTalk,dragonKingEvent:dragonKingEvent,MAPS:MAPS,MONSTERS:MONSTERS};
 </script>
 </body>
 </html>
