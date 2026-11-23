@@ -15,12 +15,14 @@
   .hbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer}
   #stage{position:relative;width:min(96vw,480px);margin-top:4px}
   canvas{width:100%;display:block;border:2px solid #3b4a7a;border-radius:8px;background:#000;image-rendering:pixelated}
-  #statuswin{position:absolute;top:8px;left:8px;background:rgba(8,8,24,.88);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:13px;line-height:1.55;min-width:118px;pointer-events:none}
+  #statuswin{position:absolute;top:8px;left:8px;background:rgba(8,8,24,.88);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:13px;line-height:1.55;min-width:118px;pointer-events:none;z-index:7}
+  #statuswin.mini{font-size:11px;line-height:1.45;padding:4px 7px;min-width:0;opacity:.92}
+  #statuswin.mini .nm,#statuswin.mini #st-g{display:none}
   #statuswin .nm{font-weight:bold;font-size:14px}
   #msgwin{width:min(96vw,480px);margin-top:6px;background:rgba(8,8,24,.92);border:2px solid #fff;border-radius:8px;padding:9px 12px;font-size:14.5px;line-height:1.65;min-height:86px;white-space:pre-wrap;cursor:pointer}
   #msgwin .arrow{float:right;animation:bl 1s infinite}
   @keyframes bl{50%{opacity:0}}
-  #menu{position:absolute;top:8px;right:8px;background:rgba(8,8,24,.94);border:2px solid #fff;border-radius:8px;padding:8px 6px;min-width:150px;display:none;z-index:6}
+  #menu{position:absolute;top:8px;right:8px;background:rgba(8,8,24,.94);border:2px solid #fff;border-radius:8px;padding:8px 6px;min-width:150px;display:none;z-index:9}
   #menu .ttl{font-size:11px;opacity:.75;padding:0 8px 4px}
   .mitem{padding:6px 10px;font-size:14.5px;border-radius:6px;cursor:pointer;white-space:nowrap}
   .mitem.sel,.mitem:active{background:#3450a0}
@@ -179,11 +181,11 @@ castle:{name:"ラダトーム城",grid:[
 "#..............#",
 "#..........#...#",
 "#..........#...#",
-"#..........#...#",
-"#..........#...#",
 "#..............#",
-"#..........D...#",
-"#......E.......#"],
+"#..........#...#",
+"#..........#####",
+"#..........D..U#",
+"#......E...#####"],
 npcs:[
 {x:7,y:2,c:"#ffd94a",id:"king",name:"王様"},
 {x:5,y:3,c:"#7ea0ff",name:"兵士",text:["このお城を出ると となりに街がある。","そこで まず 武器と防具を買い揃える事だ。","戦いで傷ついたときは 宿屋に泊まると回復するだろう。"]},
@@ -203,7 +205,7 @@ castle_b1:{name:"ラダトーム城・地下室",dark:true,grid:[
 "##########"],
 npcs:[{x:5,y:2,c:"#e8e8e8",name:"老人",text:["わしは待っておった。そなたのような若者が現れる事を…","さあ 宝の箱を取るが良い。"]}],
 chests:[{x:7,y:2,item:"たいようのいし"}],
-steps:{"1,6":{map:"castle",x:14,y:9}}},
+steps:{"1,6":{map:"castle",x:13,y:10}}},
 town:{name:"ラダトームの街",grid:[
 "################",
 "#..............#",
@@ -481,7 +483,7 @@ function newGame(){G={map:"castle",x:7,y:5,dir:0,wx:29,wy:23,hero:newHero(),step
 function saveGame(){try{localStorage.setItem("nanakue-save-v1",JSON.stringify(G));}catch(e){}}
 function loadGame(){try{var s=localStorage.getItem("nanakue-save-v1");return s?JSON.parse(s):null;}catch(e){return null;}}
 function continueGame(){var s=loadGame();if(!s)return;G=s;if(G.hero.flags.bridge)buildBridgeSilent();if(G.hero.flags.dk_stairs){MAPS.dkcastle.grid[1]=MAPS.dkcastle.grid[1].substring(0,7)+"U"+MAPS.dkcastle.grid[1].substring(8);MAPS.dkcastle.steps["7,1"]={map:"dkb2",x:5,y:2};}document.getElementById("ov-title").classList.add("hidden");render();updateStatus();say(["王様「おお なつき！ よくぞ戻ってきてくれた！"],null);}
-function updateStatus(){var h=G.hero,st=heroStats();document.getElementById("st-lv").textContent="LV "+h.lv;document.getElementById("st-hp").textContent="HP "+h.hp+"/"+st.hpmax;document.getElementById("st-mp").textContent="MP "+h.mp+"/"+st.mpmax;document.getElementById("st-g").textContent="G "+h.gold;}
+function updateStatus(){var sw=document.getElementById("statuswin");if(sw)sw.classList.toggle("mini",G.map!=="world"&&!B);var h=G.hero,st=heroStats();document.getElementById("st-lv").textContent="LV "+h.lv;document.getElementById("st-hp").textContent="HP "+h.hp+"/"+st.hpmax;document.getElementById("st-mp").textContent="MP "+h.mp+"/"+st.mpmax;document.getElementById("st-g").textContent="G "+h.gold;}
 /* ---------- sound ---------- */
 var AC=null,sndOn=true;
 try{sndOn=localStorage.getItem("nanafun-snd-dq1")!=="0";}catch(e){}
@@ -537,24 +539,25 @@ function afterStep(){G.steps++;var h=G.hero;
    if(h.armor===6&&G.steps%4===0)h.hp=Math.min(heroStats().hpmax,h.hp+1);
    if(h.armor===7)h.hp=Math.min(heroStats().hpmax,h.hp+1);
    var st=(MAPS[G.map].steps||{})[G.x+","+G.y];
-   if(st){if(st.map==="world"){G.map="world";G.wx=st.wx;G.wy=st.wy;G.x=st.wx;G.y=st.wy;saveGame();render();updateStatus();return;}if(st.msg){var m=st.msg;gotoMap(st.map,st.x,st.y);say([m],null);return;}gotoMap(st.map,st.x,st.y);return;}
+   if(st){if(st.map==="world"){G.map="world";G.wx=st.wx;G.wy=st.wy;G.x=st.wx;G.y=st.wy;G.grace=6;saveGame();render();updateStatus();return;}if(st.msg){var m=st.msg;gotoMap(st.map,st.x,st.y);say([m],null);return;}gotoMap(st.map,st.x,st.y);return;}
    var ev=(MAPS[G.map].eventTile||{})[G.x+","+G.y];
    if(ev){mapEvent(ev);return;}
  }
  if(G.light>0)G.light--;
  if(G.repel>0)G.repel--;
+ if(G.grace&&G.grace>0)G.grace--;
  updateStatus();render();
  maybeEncounter();
 }
 function hurtHero(dmg,silent){var h=G.hero;h.hp-=dmg;if(h.hp<=0){h.hp=0;death();}updateStatus();}
 function death(){var h=G.hero;h.gold=Math.floor(h.gold/2);h.hp=heroStats().hpmax;h.mp=heroStats().mpmax;G.map="castle";G.x=7;G.y=10;G.wx=29;G.wy=23;saveGame();render();updateStatus();say(["あなたは しにました…","王様「おお なつき！ 死んでしまうとは なにごとだ！","「おまえに もう一度 機会を あたえよう！（ゴールドが 半分になった）"],null);}
-function maybeEncounter(){if(!G||B||G.hero.flags.peace)return;var inDun=G.map!=="world";var zoneKey=null;
+function maybeEncounter(){if(!G||B||G.hero.flags.peace)return;if(G.grace&&G.grace>0)return;var inDun=G.map!=="world";var zoneKey=null;
  if(inDun){var zm=MAPS[G.map].zone;if(!zm)return;zoneKey=zm;}
  else{var t=WORLD_ROWS[G.wy][G.wx];if("~mb".indexOf(t)>=0)return;zoneKey=zoneOf(G.wx,G.wy);}
  var rate=inDun?0.1:0.07;
  if(G.repel>0)rate*=0.25;
  if(Math.random()<rate){var mon;if(Array.isArray(zoneKey))mon=zoneKey[Math.floor(Math.random()*zoneKey.length)];else{var tbl=ZONES[zoneKey];mon=tbl[Math.floor(Math.random()*tbl.length)];}startBattle(mon,{});}}
-function zoneOf(x,y){if(x>=46&&y>=43)return 7;if(x>=29&&x<=44&&y>=37&&y<=48)return 5;if(y>=38&&x<27)return 6;if(x>=52)return y<20?3:4;if(x<20&&y<16)return 2;var dx=x-29,dy=y-24;if(dx*dx+dy*dy<81)return 0;if(y<14)return 1;if(y>=27)return 4;return 2;}
+function zoneOf(x,y){if(x>=46&&y>=43)return 7;if(x>=29&&x<=44&&y>=37&&y<=48)return 5;if(y>=38&&x<27)return 6;if(x>=52)return y<20?3:4;if(x>=44)return 3;var dx=x-29,dy=y-24,d2=dx*dx+dy*dy;if(d2<100)return 0;if(d2<260)return 1;if(x<20&&y<18)return 2;if(y>=27)return 3;return 2;}
 
 /* ---------- rendering ---------- */
 function drawTileWorld(t,x,y,px,py){ctx.fillStyle="#2f9e44";
@@ -723,6 +726,7 @@ function startBattle(key,opts){opts=opts||{};var d=MONSTERS[key];B={key:key,def:
  sfx("enc");var bp=document.getElementById("battle");bp.style.display="flex";document.getElementById("mon-emoji").textContent=d[1];document.getElementById("mon-name").textContent=d[0];document.getElementById("mon-hp").textContent="";
  say([d[0]+"が あらわれた！"],function(){battleCommand();});render();}
 function endBattle(){B=null;document.getElementById("battle").style.display="none";render();updateStatus();}
+function refreshStatusWin(){updateStatus();}
 function shakeMon(){var e=document.getElementById("mon-emoji");e.classList.remove("shake");void e.offsetWidth;e.classList.add("shake");}
 function battleCommand(){if(!B)return;var h=G.hero;
  if(h.hp<=0)return;
