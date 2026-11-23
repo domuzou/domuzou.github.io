@@ -159,7 +159,7 @@ var MONSTERS={
 };
 var ZONES=[
  ["slime","beth","dracky"],
- ["slime","beth","dracky","ghost","mage"],
+ ["slime","beth","dracky","ghost"],
  ["ghost","mage","mdracky","meida","scorp"],
  ["scorp","dorol","gaikotsu","drackyma","metrog"],
  ["madoushi","rikanto","tscorp","shiryo","dorol"],
@@ -483,7 +483,7 @@ function newGame(){G={map:"castle",x:7,y:5,dir:0,wx:29,wy:23,hero:newHero(),step
 function saveGame(){try{localStorage.setItem("nanakue-save-v1",JSON.stringify(G));}catch(e){}}
 function loadGame(){try{var s=localStorage.getItem("nanakue-save-v1");return s?JSON.parse(s):null;}catch(e){return null;}}
 function continueGame(){var s=loadGame();if(!s)return;G=s;if(G.hero.flags.bridge)buildBridgeSilent();if(G.hero.flags.dk_stairs){MAPS.dkcastle.grid[1]=MAPS.dkcastle.grid[1].substring(0,7)+"U"+MAPS.dkcastle.grid[1].substring(8);MAPS.dkcastle.steps["7,1"]={map:"dkb2",x:5,y:2};}document.getElementById("ov-title").classList.add("hidden");render();updateStatus();say(["王様「おお なつき！ よくぞ戻ってきてくれた！"],null);}
-function updateStatus(){var sw=document.getElementById("statuswin");if(sw)sw.classList.toggle("mini",G.map!=="world"&&!B);var h=G.hero,st=heroStats();document.getElementById("st-lv").textContent="LV "+h.lv;document.getElementById("st-hp").textContent="HP "+h.hp+"/"+st.hpmax;document.getElementById("st-mp").textContent="MP "+h.mp+"/"+st.mpmax;document.getElementById("st-g").textContent="G "+h.gold;}
+function updateStatus(){var sw=document.getElementById("statuswin");if(sw)sw.classList.toggle("mini",G.map!=="world"&&!B);var h=G.hero,st=heroStats();if(B){var mh=document.getElementById("mon-hp");if(mh)mh.textContent="なつき HP "+h.hp+"/"+st.hpmax+"  MP "+h.mp+"/"+st.mpmax;}document.getElementById("st-lv").textContent="LV "+h.lv;document.getElementById("st-hp").textContent="HP "+h.hp+"/"+st.hpmax;document.getElementById("st-mp").textContent="MP "+h.mp+"/"+st.mpmax;document.getElementById("st-g").textContent="G "+h.gold;}
 /* ---------- sound ---------- */
 var AC=null,sndOn=true;
 try{sndOn=localStorage.getItem("nanafun-snd-dq1")!=="0";}catch(e){}
@@ -557,7 +557,7 @@ function maybeEncounter(){if(!G||B||G.hero.flags.peace)return;if(G.grace&&G.grac
  var rate=inDun?0.1:0.07;
  if(G.repel>0)rate*=0.25;
  if(Math.random()<rate){var mon;if(Array.isArray(zoneKey))mon=zoneKey[Math.floor(Math.random()*zoneKey.length)];else{var tbl=ZONES[zoneKey];mon=tbl[Math.floor(Math.random()*tbl.length)];}startBattle(mon,{});}}
-function zoneOf(x,y){if(x>=46&&y>=43)return 7;if(x>=29&&x<=44&&y>=37&&y<=48)return 5;if(y>=38&&x<27)return 6;if(x>=52)return y<20?3:4;if(x>=44)return 3;var dx=x-29,dy=y-24,d2=dx*dx+dy*dy;if(d2<100)return 0;if(d2<260)return 1;if(x<20&&y<18)return 2;if(y>=27)return 3;return 2;}
+function zoneOf(x,y){var dx=x-29,dy=y-24,d2=dx*dx+dy*dy;if(d2<196)return 0;if(d2<441)return 1;if(x>=46&&y>=43)return 7;if(x>=29&&x<=44&&y>=42)return 5;if(y>=38&&x<27)return 6;if(x>=52)return y<20?3:4;if(x>=44)return 3;if(y>=27)return 3;if(x<20&&y<18)return 2;return 2;}
 
 /* ---------- rendering ---------- */
 function drawTileWorld(t,x,y,px,py){ctx.fillStyle="#2f9e44";
@@ -722,7 +722,7 @@ function endingSeq(){var h=G.hero;var lines=["王様「おお！ なつき！ �
 function finishEnding(){G.hero.flags.cleared=true;saveGame();var rf=document.getElementById("redflash");rf.style.display="block";rf.style.background="#101c4f";rf.innerHTML="<br><b style='font-size:19px'>GREAT！！</b><br><br>YOU REGAINED PEACE TO THE WORLD！<br>BUT YOU DECIDED TO START ON A NEW JOURNEY.<br>MAY GOD BE ALWAYS WITH YOU！<br><br>なつき の 新たな旅が はじまる。<br><br>～ ななクエ おわり（冒険は続けられます） ～<br><br><button class='bigbtn' onclick='closeBadEnd()'>冒険にもどる</button>";sfx("lv");render();}
 
 /* ---------- battle ---------- */
-function startBattle(key,opts){opts=opts||{};var d=MONSTERS[key];B={key:key,def:d,hp:d[2],asleep:false,sealed:false,heroSealed:false,heroSleep:0,boss:!!opts.boss,noRun:!!opts.noRun,onWin:opts.onWin||null};
+function startBattle(key,opts){opts=opts||{};var d=MONSTERS[key];updateStatus();B={key:key,def:d,hp:d[2],asleep:false,sealed:false,heroSealed:false,heroSleep:0,boss:!!opts.boss,noRun:!!opts.noRun,onWin:opts.onWin||null};
  sfx("enc");var bp=document.getElementById("battle");bp.style.display="flex";document.getElementById("mon-emoji").textContent=d[1];document.getElementById("mon-name").textContent=d[0];document.getElementById("mon-hp").textContent="";
  say([d[0]+"が あらわれた！"],function(){battleCommand();});render();}
 function endBattle(){B=null;document.getElementById("battle").style.display="none";render();updateStatus();}
@@ -798,7 +798,7 @@ if(loadGame())document.getElementById("btn-cont").classList.remove("hidden");
 if(G.hero.flags&&G.hero.flags.bridge)buildBridgeSilent();
 function buildBridgeSilent(){var row=WORLD_ROWS[42];WORLD_ROWS[42]=row.substring(0,44)+"bbb"+row.substring(47);}
 render();updateStatus();
-window.DQ1={get G(){return G;},get B(){return B;},newGame:newGame,continueGame:continueGame,tryMove:tryMove,doA:doA,startBattle:startBattle,heroAttack:heroAttack,enemyTurn:enemyTurn,winBattle:winBattle,talkNPC:talkNPC,openShop:openShop,castFieldSpell:castFieldSpell,useFieldItem:useFieldItem,heroAtk:heroAtk,heroDef:heroDef,zoneOf:zoneOf,searchHere:searchHere,buildBridge:buildBridge,saveGame:saveGame,loadGame:loadGame,checkLevelLines:checkLevelLines,kingTalk:kingTalk,dragonKingEvent:dragonKingEvent,MAPS:MAPS,MONSTERS:MONSTERS};
+window.DQ1={ZONES:ZONES,get G(){return G;},get B(){return B;},newGame:newGame,continueGame:continueGame,tryMove:tryMove,doA:doA,startBattle:startBattle,heroAttack:heroAttack,enemyTurn:enemyTurn,winBattle:winBattle,talkNPC:talkNPC,openShop:openShop,castFieldSpell:castFieldSpell,useFieldItem:useFieldItem,heroAtk:heroAtk,heroDef:heroDef,zoneOf:zoneOf,searchHere:searchHere,buildBridge:buildBridge,saveGame:saveGame,loadGame:loadGame,checkLevelLines:checkLevelLines,kingTalk:kingTalk,dragonKingEvent:dragonKingEvent,MAPS:MAPS,MONSTERS:MONSTERS};
 </script>
 </body>
 </html>
