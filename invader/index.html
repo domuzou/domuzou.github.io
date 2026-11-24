@@ -108,9 +108,10 @@ function erodeShield(si, cx, cy, r) {
 }
 function shieldHitAt(px, py) { /* returns {si,cx,cy} or null */
   for (var si = 0; si < 4; si++) {
+    var sh = G.shields[si]; if (!sh) continue; /* shield ploughed away by the formation */
     if (px >= SH_X[si] && px < SH_X[si] + SH_W * SH_CELL && py >= SH_Y && py < SH_Y + SH_H * SH_CELL) {
       var cx = Math.floor((px - SH_X[si]) / SH_CELL), cy = Math.floor((py - SH_Y) / SH_CELL);
-      if (G.shields[si][cy][cx]) return { si: si, cx: cx, cy: cy };
+      if (sh[cy][cx]) return { si: si, cx: cx, cy: cy };
     }
   }
   return null;
@@ -122,7 +123,7 @@ function newGame() {
     score: 0, lives: 3, wave: 0, extraGiven: false, over: false, playing: true,
     px: W / 2, bullet: null, bombs: [], shields: makeShields(),
     inv: [], ox: 0, oy: 0, dir: 1, moveT: 0, stepN: 0,
-    bombT: 1.2, ufo: null, ufoT: 18, shots: 0, invuln: 0, msg: ''
+    bombT: 1.2, ufo: null, ufoT: 18, shots: 0, invuln: 0, msg: '', msgT: 0
   };
   nextWave();
   syncHud();
@@ -158,7 +159,7 @@ function dropBomb() {
 }
 function addScore(n) {
   G.score += n;
-  if (!G.extraGiven && G.score >= 1500) { G.extraGiven = true; G.lives++; G.msg = '1UP!'; beep(990, 0.3, 'square', 0.05, 1320); }
+  if (!G.extraGiven && G.score >= 1500) { G.extraGiven = true; G.lives++; G.msg = '1UP!'; G.msgT = 1.8; beep(990, 0.3, 'square', 0.05, 1320); }
   syncHud();
 }
 function loseLife() {
@@ -176,6 +177,7 @@ var keys = { left: false, right: false };
 function step(dt) {
   if (!G || !G.playing || G.over) { draw(); return; }
   if (G.invuln > 0) G.invuln -= dt;
+  if (G.msgT > 0) { G.msgT -= dt; if (G.msgT <= 0) G.msg = ''; }
   /* player */
   var spd = 190;
   if (keys.left) G.px -= spd * dt;
