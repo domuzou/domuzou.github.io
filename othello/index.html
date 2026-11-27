@@ -6,11 +6,14 @@
 <title>ななセロ ～顔で見る7分さん～</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  body { background:#12241a; color:#e8f0e8; font-family:"Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif; display:flex; flex-direction:column; align-items:center; min-height:100vh; padding:8px 4px 16px; user-select:none; }
+  body { background:#12241a; color:#e8f0e8; font-family:"Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif; display:flex; flex-direction:column; align-items:center; min-height:100vh; padding:8px 4px 16px; user-select:none; touch-action:manipulation; }
   header { display:flex; align-items:center; gap:8px; width:100%; max-width:400px; }
   .brand-logo { height:30px; width:auto; }
   h1 { font-size:17px; flex:1; }
-  #mute { background:#1e3a28; color:#fff; border:1px solid #4a7a5a; border-radius:8px; padding:5px 10px; font-size:14px; }
+  #mute { background:#1e3a28; color:#fff; border:1px solid #4a7a5a; border-radius:8px; padding:10px 14px; font-size:16px; min-height:40px; }
+  #diffrow { display:flex; gap:6px; align-items:center; margin-top:10px; font-size:13px; color:#bfe3c8; }
+  .diffbtn { background:#1e3a28; color:#fff; border:1px solid #4a7a5a; border-radius:8px; padding:8px 12px; font-size:14px; min-height:40px; }
+  .diffbtn.sel { background:#3f7d20; border-color:#ffe66d; font-weight:bold; }
   #hud { display:flex; gap:14px; width:100%; max-width:400px; margin:8px 0 4px; font-size:15px; align-items:center; }
   #hud b { color:#ffe66d; }
   #turn { font-weight:bold; }
@@ -28,7 +31,7 @@
   #ov h2 { font-size:26px; color:#ffe66d; }
   #ov p { font-size:14px; line-height:1.8; color:#d8e8d8; }
   .hidden { display:none !important; }
-  footer { margin-top:10px; font-size:11px; color:#7fa88c; text-align:center; line-height:1.6; }
+  footer { margin-top:10px; font-size:12px; color:#7fa88c; text-align:center; line-height:1.6; }
 </style>
 </head>
 <body>
@@ -45,6 +48,7 @@
 <div id="msg">薄い丸が打てる場所だよ。角は絶対に返されない最強のマスさ。</div>
 <div id="board"></div>
 <div id="panel"><button class="bigbtn" id="btn-new">はじめから</button></div>
+<div id="diffrow"><span>CPUの強さ：</span><button class="diffbtn" data-diff="easy">よわい</button><button class="diffbtn" data-diff="normal">ふつう</button><button class="diffbtn" data-diff="hard">つよい</button></div>
 <div id="ov" class="hidden">
   <h2 id="ov-title">勝ち！</h2>
   <p id="ov-text"></p>
@@ -111,6 +115,27 @@ function search(bd, color, depth, alpha, beta) {
   }
   return best;
 }
+/* localStorage access is always guarded: private-browsing modes and
+   corrupted data must never break the game or the result screen. */
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function loadRecord() {
+  try {
+    var r = JSON.parse(lsGet('nanasero-record') || '{"w":0,"l":0,"d":0}');
+    if (typeof r.w !== 'number' || typeof r.l !== 'number' || typeof r.d !== 'number') return { w: 0, l: 0, d: 0 };
+    return r;
+  } catch (e) { return { w: 0, l: 0, d: 0 }; }
+}
+/* CPU difficulty: easy = greedy + lots of randomness, no reading;
+   normal (default) = heuristic, full search only in the last 6 empties;
+   hard = the original: heuristic + full search in the last 10 empties. */
+var DIFFS = ['easy', 'normal', 'hard'];
+var difficulty = lsGet('nanasero-difficulty');
+if (DIFFS.indexOf(difficulty) < 0) difficulty = 'normal';
+function setDifficulty(d) {
+  if (DIFFS.indexOf(d) < 0) return;
+  difficulty = d; lsSet('nanasero-difficulty', d); drawDifficulty();
+}
 function cpuChoose(bd) {
   var moves = legalMoves(bd, WHITE);
   if (!moves.length) return -1;
@@ -119,20 +144,28 @@ function cpuChoose(bd) {
   for (var i = 0; i < moves.length; i++) {
     var nb = bd.slice(); var flipped = applyMove(nb, moves[i], WHITE);
     var v;
-    if (empties <= 10) v = -search(nb, BLACK, empties, -Infinity, Infinity);
-    else v = WEIGHTS[moves[i]] + flipped * 1.2 + (legalMoves(nb, WHITE).length - legalMoves(nb, BLACK).length) * 5 + Math.random() * 2;
+    if (difficulty === 'easy') {
+      v = flipped * 2 + WEIGHTS[moves[i]] * 0.3 + Math.random() * 15;
+    } else if (difficulty === 'hard') {
+      if (empties <= 10) v = -search(nb, BLACK, empties, -Infinity, Infinity);
+      else v = WEIGHTS[moves[i]] + flipped * 1.2 + (legalMoves(nb, WHITE).length - legalMoves(nb, BLACK).length) * 5 + Math.random() * 2;
+    } else { /* normal: shallower endgame reading and a looser, more
+                forgiving evaluation so a first-time player has a chance */
+      if (empties <= 6) v = -search(nb, BLACK, empties, -Infinity, Infinity);
+      else v = WEIGHTS[moves[i]] * 0.8 + flipped * 1.2 + (legalMoves(nb, WHITE).length - legalMoves(nb, BLACK).length) * 2 + Math.random() * 9;
+    }
     if (v > best) { best = v; pick = moves[i]; }
   }
   return pick;
 }
 
 /* sound */
-var AC = null, muted = localStorage.getItem('nanafun-snd-othello') === '1';
+var AC = null, muted = lsGet('nanafun-snd-othello') === '1';
 function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
 function beep(f, d, type, v) { if (muted) return; var a = ac(); if (!a) return; var o = a.createOscillator(), g = a.createGain(); o.type = type || 'sine'; o.frequency.value = f; g.gain.value = v || 0.06; g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + d); o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + d); }
 var muteBtn = document.getElementById('mute');
 function drawMute() { muteBtn.textContent = muted ? '🔇' : '🔊'; }
-muteBtn.addEventListener('click', function () { muted = !muted; localStorage.setItem('nanafun-snd-othello', muted ? '1' : '0'); drawMute(); });
+muteBtn.addEventListener('click', function () { muted = !muted; lsSet('nanafun-snd-othello', muted ? '1' : '0'); drawMute(); });
 drawMute();
 
 var G = null;
@@ -173,8 +206,12 @@ function render() {
   drawRecord();
 }
 function drawRecord() {
-  var r = JSON.parse(localStorage.getItem('nanasero-record') || '{"w":0,"l":0,"d":0}');
+  var r = loadRecord();
   document.getElementById('h-record').textContent = r.w + '勝 ' + r.l + '敗 ' + r.d + '分';
+}
+function drawDifficulty() {
+  var btns = document.querySelectorAll('.diffbtn');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('sel', btns[i].dataset.diff === difficulty);
 }
 function playerPlace(idx) {
   if (!G || G.over || G.busy || G.turn !== BLACK) return;
@@ -212,21 +249,25 @@ function scheduleCpu() {
 function finish() {
   G.over = true; render();
   var cnt = countDiscs(G.bd);
-  var r = JSON.parse(localStorage.getItem('nanasero-record') || '{"w":0,"l":0,"d":0}');
+  var r = loadRecord();
   var title, detail = '黒（あんた）' + cnt.b + ' ： 白（CPU）' + cnt.w;
   if (cnt.b > cnt.w) { title = '🏆 あんたの勝ち！'; r.w++; beep(784, 0.15); setTimeout(function () { beep(988, 0.15); }, 160); setTimeout(function () { beep(1175, 0.3); }, 320); }
   else if (cnt.b < cnt.w) { title = 'CPUの勝ち…'; r.l++; beep(220, 0.35, 'sawtooth', 0.05); }
   else { title = '引き分け'; r.d++; }
-  localStorage.setItem('nanasero-record', JSON.stringify(r));
+  /* show the result first; saving is best-effort and must never block it */
   document.getElementById('ov-title').textContent = title;
   document.getElementById('ov-text').innerHTML = detail + '<br>通算 ' + r.w + '勝 ' + r.l + '敗 ' + r.d + '分';
   document.getElementById('ov').classList.remove('hidden');
+  lsSet('nanasero-record', JSON.stringify(r));
   drawRecord();
 }
 document.getElementById('btn-new').addEventListener('click', function () { ac(); newGame(); });
 document.getElementById('btn-again').addEventListener('click', function () { ac(); newGame(); });
+var diffBtns = document.querySelectorAll('.diffbtn');
+for (var di = 0; di < diffBtns.length; di++) (function (b) { b.addEventListener('click', function () { ac(); setDifficulty(b.dataset.diff); setMsg('CPUの強さを「' + b.textContent + '」にしたよ。'); }); })(diffBtns[di]);
+drawDifficulty();
 newGame();
-window.NANASERO = { get G() { return G; }, newGame: newGame, playerPlace: playerPlace, cpuChoose: cpuChoose, legalMoves: legalMoves, flipsFor: flipsFor, applyMove: applyMove, countDiscs: countDiscs, finish: finish, BLACK: BLACK, WHITE: WHITE, EMPTY: EMPTY };
+window.NANASERO = { get G() { return G; }, newGame: newGame, playerPlace: playerPlace, cpuChoose: cpuChoose, legalMoves: legalMoves, flipsFor: flipsFor, applyMove: applyMove, countDiscs: countDiscs, finish: finish, search: search, evaluate: evaluate, getDifficulty: function () { return difficulty; }, setDifficulty: setDifficulty, loadRecord: loadRecord, BLACK: BLACK, WHITE: WHITE, EMPTY: EMPTY };
 </script>
 </body>
 </html>

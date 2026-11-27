@@ -30,7 +30,7 @@
   #hgfill{ background:linear-gradient(90deg,#ffc93f,#ffe95d); width:100%; }
   .bar-row b{ min-width:34px; text-align:left; font-size:11.5px; flex:none; }
   #cv{
-    width:min(392px, 94vw, calc((100dvh - 437px) * 1.444)); aspect-ratio:364/252;
+    width:min(392px, 94vw, calc((100dvh - 451px) * 1.444)); aspect-ratio:364/252;
     display:block; margin:6px auto 0;
     background:#0c0a11; border:3px solid #4a4258; border-radius:12px;
     box-shadow:0 4px 16px rgba(0,0,0,.5); image-rendering:pixelated;
@@ -41,24 +41,23 @@
     border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:4px 9px; color:#d9d2e8;
   }
   #log div{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .controls{ display:flex; gap:10px; justify-content:center; width:100%; max-width:392px; height:146px; margin:8px auto 0; }
+  .controls{ display:flex; gap:10px; justify-content:center; width:100%; max-width:392px; height:160px; margin:8px auto 0; }
   .dpad{ display:grid; grid-template-columns:repeat(3,46px); grid-template-rows:repeat(3,46px); gap:4px; flex:none; }
   .dpad button{ font-size:17px; padding:0; border-radius:12px; }
   button{
     font:inherit; font-size:14px; font-weight:700; color:#fff;
     background:#5b4a8a; border:none; border-radius:12px; padding:10px 12px; cursor:pointer;
-    box-shadow:0 3px 8px rgba(0,0,0,.35);
+    box-shadow:0 3px 8px rgba(0,0,0,.35); touch-action:manipulation;
   }
   button:active{ transform:scale(.95); }
   button.sub{ background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.25); box-shadow:none; }
-  button.small{ font-size:12px; padding:4px 9px; border-radius:999px; }
+  button.small{ font-size:13px; padding:8px 12px; border-radius:999px; min-height:36px; min-width:36px; }
   button:disabled{ opacity:.38; }
   .actions{ display:flex; flex-direction:column; gap:5px; flex:1; max-width:200px; min-height:0; }
   .actions button{ width:100%; flex:1; min-height:0; padding:4px 8px; font-size:12.5px; border-radius:10px; }
   #btn-descend{ background:#b97f2c; }
   .hidden{ display:none !important; }
-  footer{ width:100%; margin-top:5px; font-size:10px; line-height:1.35; opacity:.65; text-align:left; }
-  footer p{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  footer{ width:100%; margin-top:5px; font-size:11px; line-height:1.35; opacity:.65; text-align:left; }
   #result{ position:fixed; inset:0; background:rgba(8,5,14,.78); display:flex; align-items:center; justify-content:center; z-index:10; padding:20px; }
   #result.hidden{ display:none; }
   .card{ background:#241f31; color:#efeaf6; border:1px solid rgba(255,255,255,.2); border-radius:20px; padding:26px 30px; text-align:center; max-width:320px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,.5); }
@@ -338,7 +337,7 @@ function genFloor(){
     const pos = freeTile(1);
     if (!pos) break;
     const r = rng();
-    if (r < 0.05){
+    if (r < 0.08){
       G.items.push({x: pos.x, y: pos.y, kind: 'equip', equip: rollEquip()});
     } else {
       const kind = r < 0.20 ? 'bread' : (r < 0.65 ? 'herb' : (r < 0.85 ? 'fruit' : null));
@@ -734,7 +733,7 @@ $('btn-bread').addEventListener('click', () => useItem('bread'));
 $('btn-herb').addEventListener('click', () => useItem('herb'));
 $('btn-fruit').addEventListener('click', () => useItem('fruit'));
 $('btn-descend').addEventListener('click', () => descend());
-$('btn-restart').addEventListener('click', () => newGame());
+$('btn-restart').addEventListener('click', () => { if (confirm('最初から始めますか？今の冒険は消えてしまいます。')) newGame(); });
 $('btn-again').addEventListener('click', () => newGame());
 $('snd').addEventListener('click', toggleSound);
 document.addEventListener('keydown', ev => {

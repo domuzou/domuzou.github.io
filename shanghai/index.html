@@ -40,8 +40,8 @@ border:1px solid rgba(90,70,30,.35); background:#ddd;
 }
 .tile img{ width:100%; height:100%; object-fit:cover; object-position:50% 18%; display:block; pointer-events:none;}
 .tile .badge{
-position:absolute; bottom:2px; left:2px; min-width:15px; height:15px; padding:0 3px;
-border-radius:8px; color:#fff; font-size:10.5px; font-weight:700; line-height:15px;
+position:absolute; bottom:2px; left:2px; min-width:18px; height:18px; padding:0 3px;
+border-radius:9px; color:#fff; font-size:12px; font-weight:700; line-height:18px;
 text-align:center; text-shadow:0 1px 2px rgba(0,0,0,.45); pointer-events:none;
 box-shadow:0 1px 3px rgba(0,0,0,.4);
 }
@@ -247,6 +247,23 @@ if (ok && alive.length === 0) return { assign, solution };
 return null;
 }
 
+/* 決定的フォールバック配牌（ランダム生成が万一失敗した時用：常に先頭の取れる2枚を組にする） */
+function dealDeterministic(cells, counts){
+const pairImgs = [];
+counts.forEach((c,img)=>{ for (let k=0;k<c/2;k++) pairImgs.push(img);});
+let alive = cells.slice();
+const assign = new Map();
+const solution = [];
+for (const img of pairImgs){
+const free = alive.filter(t => isFree(t, alive));
+if (free.length < 2) return null;
+const picks = [free[0], free[1]];
+for (const p of picks){ assign.set(key(p), img); alive = alive.filter(t => t!== p);}
+solution.push(picks);
+}
+return alive.length === 0 ? { assign, solution } : null;
+}
+
 /* ===== ゲーム状態 ===== */
 let tiles = [];
 let lastSolution = []; /* {x,y,z,img,el} */
@@ -258,7 +275,15 @@ let wasStuck = false;
 
 function newGame(){
 const counts = [8,8,8,8,8,8,8,8];
-const dealt = genAssignment(CELLS, counts);
+let dealt = genAssignment(CELLS, counts);
+for (let retry = 0;!dealt && retry < 50; retry++) dealt = genAssignment(CELLS, counts);
+if (!dealt) dealt = dealDeterministic(CELLS, counts);
+if (!dealt){
+if (tiles.length) return; /* 配牌できなかった時は今の盤面を守る（例外で止めない） */
+const assignFB = new Map(); /* 最終手段：任意のペア割り当て */
+CELLS.forEach((c, i) => assignFB.set(key(c), Math.floor(i / 2) % 8));
+dealt = { assign: assignFB, solution: [] };
+}
 const assign = dealt.assign;
 lastSolution = dealt.solution;
 tiles = CELLS.map(c => ({ x:c.x, y:c.y, z:c.z, img: assign.get(key(c)), el:null}));
@@ -388,8 +413,23 @@ pairsDone--; selected = null;
 render();
 sndSweep();
 });
+/* 保持している解法（lastSolution）の順序に沿ったヒント。
+   解法のペアは「その順番で取れば必ず進める」ことが生成時に保証されている。
+   既に消えたペアは読み飛ばし、両方残っていて今取れる最初のペアを返す。 */
+function solutionHint(){
+const alive = aliveTiles();
+const byKey = new Map(alive.map(t => [key(t), t]));
+for (const pair of lastSolution){
+const a = byKey.get(key(pair[0]));
+const b = byKey.get(key(pair[1]));
+if (!a ||!b || a === b) continue;
+if (a.img!== b.img) continue;
+if (isFree(a, alive) && isFree(b, alive)) return [a, b];
+}
+return null;
+}
 document.getElementById('btn-hint').addEventListener('click', ()=>{
-const pair = findPair(aliveTiles());
+const pair = solutionHint() || findPair(aliveTiles());
 if (!pair) return;
 for (const t of pair){ t.el.classList.remove('hint'); void t.el.offsetWidth; t.el.classList.add('hint');}
 sndHint();
@@ -403,6 +443,7 @@ for (const t of alive) counts[t.img]++;
 const dealt2 = genAssignment(alive.map(t=>({x:t.x,y:t.y,z:t.z})), counts);
 const assign = dealt2 ? dealt2.assign : null;
 if (assign){
+lastSolution = dealt2.solution;
 for (const t of alive){
 t.img = assign.get(key(t));
 t.el.querySelector('img').src = IMAGES[t.img];
@@ -413,8 +454,12 @@ b.style.background = BADGE_COLORS[t.img]; b.textContent = t.img + 1;
 selected = null; render();
 sndSweep();
 });
-document.getElementById('btn-new').addEventListener('click', newGame);
-document.getElementById('btn-again').addEventListener('click', newGame);
+function requestNewGame(){
+if (pairsDone > 0 &&!cleared &&!confirm('今のゲームをやめて、新しいゲームを始める？')) return;
+newGame();
+}
+document.getElementById('btn-new').addEventListener('click', requestNewGame);
+document.getElementById('btn-again').addEventListener('click', requestNewGame);
 
 newGame();
 
@@ -423,7 +468,7 @@ window.SHANGHAI = {
 get tiles(){ return tiles;},
 get pairsDone(){ return pairsDone;},
 get cleared(){ return cleared;},
-isFree, findPair, aliveTiles, newGame,
+isFree, findPair, aliveTiles, newGame, solutionHint, dealDeterministic,
 tap: t => onTap(t),
 soundMuted: () => sndMuted,
 toggleSound: () => toggleSound(),

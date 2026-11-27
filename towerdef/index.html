@@ -10,7 +10,8 @@
   header { display:flex; align-items:center; gap:8px; width:100%; max-width:400px; }
   .brand-logo { height:30px; width:auto; }
   h1 { font-size:16px; flex:1; }
-  #mute { background:#232a3d; color:#fff; border:1px solid #556; border-radius:8px; padding:5px 10px; font-size:14px; }
+  #mute { background:#232a3d; color:#fff; border:1px solid #556; border-radius:8px; padding:10px 14px; font-size:16px; min-height:40px; }
+  .abtn.place { background:#3f7d20; }
   #hud { display:flex; gap:12px; width:100%; max-width:400px; margin:6px 0; font-size:14px; flex-wrap:wrap; }
   #hud b { color:#ffe66d; }
   #stage { position:relative; width:360px; max-width:96vw; }
@@ -32,7 +33,7 @@
   #wavebar { display:flex; gap:6px; width:360px; max-width:96vw; margin-top:6px; }
   #btn-wave { flex:1; background:#3f7d20; color:#fff; border:none; border-radius:10px; padding:12px; font-size:16px; font-weight:bold; }
   #btn-wave:disabled { opacity:.45; }
-  footer { margin-top:10px; font-size:11px; color:#8a93ad; text-align:center; line-height:1.6; }
+  footer { margin-top:10px; font-size:12px; color:#8a93ad; text-align:center; line-height:1.6; }
 </style>
 </head>
 <body>
@@ -56,7 +57,8 @@
     下のタワーを選んで、道以外のマスをタップして設置。<br>
     設置済みタワーをタップすると強化／売却ができるよ。<br>
     敵が右端の拠点に着くとライフ減（ボスは-5）。<br>
-    5ウェーブごとに大きなボスが来るよ。</p>
+    5ウェーブごとに大きなボスが来るよ。<br>
+    エンドレス形式だよ：何ウェーブ守れるかに挑戦！</p>
     <button class="bigbtn" id="btn-start">▶ スタート</button>
   </div>
 </div>
@@ -68,6 +70,7 @@
 </div>
 <div id="sel-panel">
   <span id="sel-info">タワーを選んでマスをタップ</span>
+  <button class="abtn place hidden" id="btn-place">設置する</button>
   <button class="abtn hidden" id="btn-up">強化</button>
   <button class="abtn sell hidden" id="btn-sell">売却</button>
 </div>
@@ -124,20 +127,28 @@ var faceImg = faceSrc.map(function (s) { var im = new Image(); im.src = s; retur
 var cv = document.getElementById('cv');
 var ctx = null; try { ctx = cv.getContext('2d'); } catch (e) { ctx = null; }
 
+/* localStorage access is guarded so storage failures never break the game */
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
 /* sound */
-var AC = null, muted = localStorage.getItem('nanafun-snd-towerdef') === '1';
+var AC = null, muted = lsGet('nanafun-snd-towerdef') === '1';
 function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
 function beep(f, d, type, v) { if (muted) return; var a = ac(); if (!a) return; var o = a.createOscillator(), g = a.createGain(); o.type = type || 'square'; o.frequency.value = f; g.gain.value = v || 0.03; g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + d); o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + d); }
 var muteBtn = document.getElementById('mute');
 function drawMute() { muteBtn.textContent = muted ? '🔇' : '🔊'; }
-muteBtn.addEventListener('click', function () { muted = !muted; localStorage.setItem('nanafun-snd-towerdef', muted ? '1' : '0'); drawMute(); });
+muteBtn.addEventListener('click', function () { muted = !muted; lsSet('nanafun-snd-towerdef', muted ? '1' : '0'); drawMute(); });
 drawMute();
 
 var G = null;
 var selType = 'gun', selTower = null;
+/* two-step placement: first tap only marks a provisional spot (ghost +
+   range ring); a second tap on the same cell or the 設置する button
+   builds it, tapping anywhere else cancels. Prevents costly mistaps. */
+var pending = null;
 function newGame() {
   G = { gold: 160, lives: 20, wave: 0, kills: 0, towers: [], enemies: [], shots: [], spawning: 0, spawnT: 0, spawnKinds: [], inWave: false, over: false, started: true, time: 0 };
-  selTower = null; syncHud(); syncSelPanel();
+  selTower = null; pending = null; syncHud(); syncSelPanel();
   document.getElementById('btn-wave').disabled = false;
   document.getElementById('btn-wave').textContent = '▶ WAVE 1 開始';
 }
@@ -260,9 +271,9 @@ function step(dt) {
   draw();
 }
 function gameOver() {
-  G.over = true;
-  var best = +(localStorage.getItem('nanadef-best') || 0);
-  if (G.wave > best) localStorage.setItem('nanadef-best', G.wave);
+  G.over = true; pending = null; syncSelPanel();
+  var best = +(lsGet('nanadef-best') || 0);
+  if (G.wave > best) lsSet('nanadef-best', G.wave);
   var ov = document.getElementById('ov');
   ov.querySelector('h2').textContent = 'ゲームオーバー';
   ov.querySelector('p').innerHTML = 'WAVE ' + G.wave + ' まで守った！（撃破 ' + G.kills + '体）<br>もう一度あそぶ？';
@@ -285,9 +296,19 @@ function draw() {
     var st = towerStats(t), c = cellCenter(t.cx, t.cy);
     ctx.fillStyle = st.color; ctx.beginPath(); ctx.arc(c.x, c.y, 12, 0, 7); ctx.fill();
     ctx.font = '13px sans-serif'; ctx.fillText(st.icon, c.x, c.y + 5);
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 9px sans-serif'; ctx.fillText('Lv' + t.lv, c.x, c.y + 21);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('Lv' + t.lv, c.x, c.y + 22);
     if (t === selTower) { ctx.strokeStyle = '#ffe66d'; ctx.lineWidth = 2; ctx.strokeRect(t.cx * CELL + 1, t.cy * CELL + 1, CELL - 2, CELL - 2); ctx.lineWidth = 1; }
   });
+  /* provisional placement ghost + its range */
+  if (pending) {
+    var pc = cellCenter(pending.cx, pending.cy), pst = towerStats({ type: pending.type, lv: 1 });
+    ctx.strokeStyle = 'rgba(255,230,109,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(pc.x, pc.y, pst.range, 0, 7); ctx.stroke(); ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = pst.color; ctx.beginPath(); ctx.arc(pc.x, pc.y, 12, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.font = '13px sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText(pst.icon, pc.x, pc.y + 5);
+    ctx.strokeStyle = '#ffe66d'; ctx.strokeRect(pending.cx * CELL + 1, pending.cy * CELL + 1, CELL - 2, CELL - 2);
+  }
   /* enemies */
   G.enemies.forEach(function (e) {
     var im = faceImg[e.face];
@@ -307,26 +328,68 @@ function syncHud() {
   document.getElementById('h-lives').textContent = Math.max(0, G.lives);
   document.getElementById('h-wave').textContent = G.wave;
   document.getElementById('h-kills').textContent = G.kills;
-  document.getElementById('h-best').textContent = localStorage.getItem('nanadef-best') || 0;
+  document.getElementById('h-best').textContent = lsGet('nanadef-best') || 0;
+  syncSelPanel();
 }
 function syncSelPanel() {
-  var info = document.getElementById('sel-info'), up = document.getElementById('btn-up'), sell = document.getElementById('btn-sell');
+  var info = document.getElementById('sel-info'), up = document.getElementById('btn-up'), sell = document.getElementById('btn-sell'), place = document.getElementById('btn-place');
+  if (pending) {
+    var pb = TOWERS[pending.type];
+    info.textContent = '仮置き中：' + pb.name + '（' + pb.cost + 'G）同じマス再タップか「設置する」で確定、別の場所タップで取消';
+    place.classList.remove('hidden'); place.textContent = '設置する ' + pb.cost + 'G';
+    up.classList.add('hidden'); sell.classList.add('hidden');
+    return;
+  }
+  place.classList.add('hidden');
   if (selTower) {
     var st = towerStats(selTower);
-    info.textContent = st.name + ' Lv' + selTower.lv + '（威力' + st.dmg + '）';
+    info.textContent = st.name + ' Lv' + selTower.lv + '（威力' + st.dmg + '／射程' + (st.range / CELL).toFixed(1) + '／連射' + st.rate.toFixed(1) + '/秒）';
     up.classList.remove('hidden'); sell.classList.remove('hidden');
-    up.textContent = selTower.lv >= 3 ? '最大Lv' : '強化 ' + upgradeCost(selTower) + 'G';
-    up.disabled = selTower.lv >= 3;
+    if (selTower.lv >= 3) { up.textContent = '最大Lv'; up.disabled = true; }
+    else {
+      var cost = upgradeCost(selTower);
+      up.disabled = G.gold < cost;
+      up.textContent = G.gold < cost ? '強化 ' + cost + 'G（あと' + (cost - G.gold) + 'G）' : '強化 ' + cost + 'G';
+    }
     sell.textContent = '売却 +' + Math.floor(selTower.invested * 0.7) + 'G';
   } else {
     info.textContent = 'タワーを選んでマスをタップ（設置済みをタップで選択）';
     up.classList.add('hidden'); sell.classList.add('hidden');
   }
 }
+function canPlaceAt(type, cx, cy) {
+  if (!G || G.over) return false;
+  if (cx < 0 || cx >= COLS || cy < 0 || cy >= ROWS) return false;
+  if (PATH.set[cx + ',' + cy]) return false;
+  if (G.towers.some(function (t) { return t.cx === cx && t.cy === cy; })) return false;
+  return G.gold >= TOWERS[type].cost;
+}
+function confirmPlace() {
+  if (!pending) return false;
+  var p = pending; pending = null;
+  if (placeTower(p.type, p.cx, p.cy)) { selTower = null; syncSelPanel(); return true; }
+  syncSelPanel();
+  return false;
+}
+function tapCell(cx, cy) {
+  if (!G || G.over) return 'none';
+  var existing = G.towers.find(function (t) { return t.cx === cx && t.cy === cy; });
+  if (existing) { pending = null; selTower = existing; syncSelPanel(); return 'selected'; }
+  if (pending) {
+    if (pending.cx === cx && pending.cy === cy) return confirmPlace() ? 'placed' : 'error';
+    pending = null; syncSelPanel(); beep(220, 0.06, 'square', 0.03); return 'cancelled';
+  }
+  if (canPlaceAt(selType, cx, cy)) {
+    pending = { type: selType, cx: cx, cy: cy }; selTower = null;
+    beep(600, 0.05, 'square', 0.03); syncSelPanel(); return 'pending';
+  }
+  beep(150, 0.1, 'sawtooth', 0.04);
+  return 'error';
+}
 document.querySelectorAll('.tw').forEach(function (b) {
   b.addEventListener('click', function () {
     document.querySelectorAll('.tw').forEach(function (x) { x.classList.remove('sel'); });
-    b.classList.add('sel'); selType = b.dataset.t; selTower = null; syncSelPanel();
+    b.classList.add('sel'); selType = b.dataset.t; selTower = null; pending = null; syncSelPanel();
   });
 });
 cv.addEventListener('click', function (ev) {
@@ -334,19 +397,17 @@ cv.addEventListener('click', function (ev) {
   ac();
   var rect = cv.getBoundingClientRect();
   var cx = Math.floor((ev.clientX - rect.left) / rect.width * COLS), cy = Math.floor((ev.clientY - rect.top) / rect.height * ROWS);
-  var existing = G.towers.find(function (t) { return t.cx === cx && t.cy === cy; });
-  if (existing) { selTower = existing; syncSelPanel(); return; }
-  if (placeTower(selType, cx, cy)) { selTower = null; syncSelPanel(); }
-  else beep(150, 0.1, 'sawtooth', 0.04);
+  tapCell(cx, cy);
 });
-document.getElementById('btn-up').addEventListener('click', function () { if (selTower) upgradeTower(selTower); });
+document.getElementById('btn-place').addEventListener('click', function () { if (!confirmPlace()) beep(150, 0.1, 'sawtooth', 0.04); });
+document.getElementById('btn-up').addEventListener('click', function () { if (selTower && !upgradeTower(selTower)) beep(150, 0.1, 'sawtooth', 0.04); });
 document.getElementById('btn-sell').addEventListener('click', function () { if (selTower) sellTower(selTower); });
 document.getElementById('btn-wave').addEventListener('click', function () { ac(); startWave(); });
 document.getElementById('btn-start').addEventListener('click', function () { ac(); document.getElementById('ov').classList.add('hidden'); newGame(); });
 var lastT = 0;
 function loop(t) { var dt = Math.min(0.05, (t - lastT) / 1000 || 0.016); lastT = t; if (G) step(dt); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);
-window.NANADEF = { get G() { return G; }, newGame: newGame, startWave: startWave, step: step, placeTower: placeTower, upgradeTower: upgradeTower, sellTower: sellTower, towerStats: towerStats, PATH: PATH, PATH_LEN: PATH_LEN };
+window.NANADEF = { get G() { return G; }, get pending() { return pending; }, get selTower() { return selTower; }, newGame: newGame, startWave: startWave, step: step, placeTower: placeTower, upgradeTower: upgradeTower, sellTower: sellTower, towerStats: towerStats, tapCell: tapCell, confirmPlace: confirmPlace, canPlaceAt: canPlaceAt, PATH: PATH, PATH_LEN: PATH_LEN };
 </script>
 </body>
 </html>

@@ -16,10 +16,10 @@
   h1 .sub{ font-size:12.5px; font-weight:400; opacity:.8; margin-left:6px; }
   .brand-logo{height:28px;width:auto;vertical-align:middle;pointer-events:none;margin-left:6px}
   .hud{ display:flex; justify-content:center; gap:7px; margin-top:9px; flex-wrap:wrap; }
-  .chip{ background:rgba(255,255,255,.55); border:1px solid rgba(179,84,63,.35); border-radius:999px; padding:4px 12px; font-size:12.5px; }
+  .chip{ background:rgba(255,255,255,.55); border:1px solid rgba(179,84,63,.35); border-radius:999px; padding:4px 12px; font-size:13px; }
   .chip b{ font-size:15px; }
   #msg{ margin-top:8px; font-size:13px; min-height:20px; line-height:1.5; color:#8a4b1d; font-weight:700; }
-  #fx{ margin-top:1px; font-size:12px; min-height:17px; line-height:1.4; color:#a35b23; font-weight:700; }
+  #fx{ margin-top:1px; font-size:13px; min-height:17px; line-height:1.4; color:#a35b23; font-weight:700; }
   #cv{
     width:min(94vw, 380px, max(220px, calc((100dvh - 190px) * 0.75)));
     aspect-ratio:3/4; display:block; margin:8px auto 0;
@@ -33,7 +33,7 @@
     box-shadow:0 3px 8px rgba(90,40,10,.3);
   }
   button.sub{ background:rgba(255,255,255,.5); color:#7a4326; border:1px solid rgba(179,84,63,.45); box-shadow:none; }
-  button.small{ font-size:12px; padding:5px 12px; }
+  button.small{ font-size:12.5px; padding:10px 14px; }
   button:active{ transform:scale(.96); }
   #result{ position:fixed; inset:0; background:rgba(40,18,4,.72); display:flex; align-items:center; justify-content:center; z-index:10; padding:20px; }
   #result.hidden{ display:none; }
@@ -42,7 +42,7 @@
   .card p{ font-size:14px; line-height:1.7; }
   .card .big{ font-size:30px; font-weight:800; color:#b3543f; }
   .card button{ margin-top:14px; }
-  footer{ margin-top:13px; font-size:11px; opacity:.7; }
+  footer{ margin-top:13px; font-size:12px; opacity:.7; }
 </style>
 </head>
 <body>
@@ -170,7 +170,7 @@ if (ctx) {
 }
 var imgs = IMGS.map(function(src){ var i = new Image(); i.src = src; return i; });
 
-function speed(){ return BASE_SPEED * Math.pow(1.08, level - 1); }
+function speed(){ return BASE_SPEED * Math.pow(1.08, Math.min(level - 1, 7)); } /* 速度上昇は Lv8 で頭打ち */
 function brickRect(r, c){ return { x: BRICK_MX + c * (BRICK_W + BRICK_GAP), y: BRICK_TOP + r * BRICK_PITCH, w: BRICK_W, h: BRICK_H }; }
 function buildBricks(){
   bricks = [];
@@ -258,6 +258,7 @@ function substep(h){
     var dx = ball.x - cx, dy = ball.y - cy;
     if (dx * dx + dy * dy <= BALL_R * BALL_R) {
       b.alive = false; bricksLeft--; score += 10; sndBrick(b.r);
+      if (score > best) { best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch (e) {} }
       var dropType = forcedDrop;
       if (!dropType && Math.random() < DROP_CHANCE) dropType = DROP_TABLE[Math.floor(Math.random() * DROP_TABLE.length)];
       if (dropType) { items.push({ type: dropType, x: rc.x + rc.w / 2, y: rc.y + rc.h / 2 }); forcedDrop = null; }
@@ -393,7 +394,7 @@ document.addEventListener('pointermove', function(e){ if (isButton(e)) return; i
 document.addEventListener('pointerup', function(){ dragOn = false; lastClientX = null; });
 document.addEventListener('pointercancel', function(){ dragOn = false; lastClientX = null; });
 $('again').addEventListener('click', newGame);
-$('restart').addEventListener('click', newGame);
+$('restart').addEventListener('click', function(){ if ((score > 0 || level > 1) && !confirm('最初からやり直す？')) return; newGame(); });
 $('sndbtn').addEventListener('click', toggleSound);
 updateSndBtn();
 
@@ -421,6 +422,7 @@ window.BREAKOUT = {
     };
   },
   step: step,
+  speed: speed,
   launch: launch,
   newGame: newGame,
   setBall: setBall,

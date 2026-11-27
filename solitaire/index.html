@@ -90,6 +90,16 @@
   }
   details.howto summary{ cursor:pointer; font-weight:700; }
   details.howto p{ margin-top:6px; color:#e8dfc9; }
+  #stuck-banner{
+    display:none; text-align:center; background:rgba(228,87,46,.16);
+    border:1px solid var(--accent); border-radius:12px; padding:12px 14px; margin-bottom:12px;
+  }
+  #stuck-banner p{ font-size:14.5px; font-weight:700; margin-bottom:8px; }
+  #stuck-banner .sub{ font-size:12.5px; font-weight:400; color:var(--muted); margin-bottom:10px; }
+  .card.hint{ outline:3px solid var(--accent); outline-offset:1px; z-index:41 !important; animation:hintPulse .7s ease-in-out infinite alternate; }
+  @keyframes hintPulse{ from{ filter:brightness(1); } to{ filter:brightness(1.22); } }
+  .slot.hint-target{ border-color:var(--accent); border-style:solid; }
+  .col.hint-target{ outline:3px dashed var(--accent); outline-offset:-3px; border-radius:8px; }
   #win-overlay{
     position:fixed; inset:0; background:rgba(10,20,12,.72); z-index:300;
     display:none; align-items:center; justify-content:center; padding:20px;
@@ -122,8 +132,15 @@
   <div class="controls">
     <button id="btn-new" class="primary">新しいゲーム</button>
     <button id="btn-undo">↩ 元に戻す</button>
+    <button id="btn-hint">💡 ヒント</button>
     <button id="btn-auto" style="display:none">自動で仕上げる</button>
     <button id="btn-snd" aria-label="効果音のオン・オフ">🔊</button>
+  </div>
+
+  <div id="stuck-banner">
+    <p>これ以上動けません…</p>
+    <p class="sub">動かせるカードがもう無いよ。「元に戻す」で手前からやり直すか、新しいゲームを始めよう。</p>
+    <button id="btn-stuck-new" class="primary">新しいゲームを始める</button>
   </div>
 
   <div id="board">
@@ -135,6 +152,7 @@
     <summary>遊び方</summary>
     <p>クロンダイク・ソリティアだよ。山札をタップすると1枚めくれるよ。場のカードは「赤と黒を交互に、数字が1つずつ下がる」順で重ねられて、空いた列には K だけ置けるよ。左上の組札に A→K の順で同じマークを揃えていくのがゴールだよ。</p>
     <p>操作はタップ（選んで、置きたい場所をタップ）でも、ドラッグでも OK。カードをダブルタップすると、置ける時は組札へ自動で飛ぶよ。裏向きのカードは、上のカードが無くなると自動でめくれるよ。</p>
+    <p>困ったら「💡 ヒント」ボタンで動かせるカードを教えてもらえるよ。もう動かせる手が無くなると、そのことをお知らせするよ。</p>
   </details>
 
   <footer>domuzou.github.io</footer>
@@ -154,7 +172,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 const IMAGES = [window.__IMG1,window.__IMG2,window.__IMG3,window.__IMG4,window.__IMG5,window.__IMG6,window.__IMG7,window.__IMG8];
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANK_LABEL = {1:"A", 11:"J", 12:"Q", 13:"K"};
@@ -202,6 +220,7 @@ function newGame(){
   while (deck.length){ const c = deck.pop(); c.faceUp = false; S.stock.push(c); }
   history = [];
   selected = null;
+  hint = null;
   startTimer();
   render();
 }
@@ -218,6 +237,7 @@ function undo(){
   const snap = JSON.parse(history.pop());
   S = snap.S;
   selected = null;
+  hint = null;
   render();
 }
 
@@ -314,8 +334,89 @@ function afterAction(){
   S.moves++;
   S.started = true;
   selected = null;
+  hint = null;
   checkWin();
   render();
+}
+
+/* ---------------- Stuck detection & hints ---------------- */
+let hint = null;  // {from, to} currently highlighted hint
+
+function findMoves(){
+  const moves = [];
+  if (!S || S.won) return moves;
+  const sources = [];
+  if (S.waste.length) sources.push({ type: "waste" });
+  for (let f = 0; f < 4; f++)
+    if (S.foundations[f].length) sources.push({ type: "foundation", col: f });
+  for (let c = 0; c < 7; c++){
+    const pile = S.tableau[c];
+    for (let i = 0; i < pile.length; i++)
+      if (pile[i].faceUp) sources.push({ type: "tableau", col: c, index: i });
+  }
+  for (const from of sources){
+    const stack = getStack(from);
+    if (!stack.length) continue;
+    const head = stack[0];
+    if (stack.length === 1 && from.type !== "foundation" &&
+        canPlaceOnFoundation(head, head.suit))
+      moves.push({ from, to: { type: "foundation", col: head.suit } });
+    for (let c = 0; c < 7; c++){
+      if (from.type === "tableau" && from.col === c) continue;
+      const target = S.tableau[c];
+      // moving a whole K pile to an empty column changes nothing
+      if (!target.length && from.type === "tableau" && from.index === 0 && head.rank === 13) continue;
+      if (canPlaceOnTableau(head, target)) moves.push({ from, to: { type: "tableau", col: c } });
+    }
+  }
+  return moves;
+}
+
+function hasAnyMove(){
+  if (!S) return false;
+  if (findMoves().length) return true;
+  if (S.stock.length) return true;
+  // stock empty: after recycling, every waste card becomes the top in turn
+  for (const c of S.waste){
+    if (canPlaceOnFoundation(c, c.suit)) return true;
+    for (let col = 0; col < 7; col++)
+      if (canPlaceOnTableau(c, S.tableau[col])) return true;
+  }
+  return false;
+}
+
+function isStuck(){
+  return !!S && !S.won && S.started && !hasAnyMove();
+}
+
+function findHint(){
+  const moves = findMoves();
+  if (!moves.length){
+    if (S.stock.length || S.waste.length) return { from: { type: "stock" }, to: null };
+    return null;
+  }
+  const score = (m) => {
+    let s = 0;
+    if (m.to.type === "foundation") s += 40;
+    if (m.from.type === "tableau"){
+      const pile = S.tableau[m.from.col];
+      if (m.from.index > 0 && !pile[m.from.index - 1].faceUp) s += 30;  // flips a face-down card
+      if (m.from.index === 0 && pile.length === 1) s -= 20;             // empties a column for little gain
+    }
+    if (m.from.type === "waste") s += 10;
+    if (m.to.type === "tableau" && S.tableau[m.to.col].length === 0) s += 5;
+    return s;
+  };
+  moves.sort((a, b) => score(b) - score(a));
+  return moves[0];
+}
+
+function showHint(){
+  if (!S || S.won) return;
+  hint = findHint();
+  selected = null;
+  render();
+  if (hint) sndTick();
 }
 
 function checkWin(){
@@ -385,6 +486,10 @@ function cardEl(card, loc, topPx, badgeTopPx){
     else if (loc.index === selected.index) d.classList.add("selected");
     else if (loc.index > selected.index) d.classList.add("stack-selected");
   }
+  if (hint && hint.from && loc.type === hint.from.type && loc.col === hint.from.col){
+    if (loc.type === "waste" || loc.type === "foundation") d.classList.add("hint");
+    else if (loc.index === hint.from.index) d.classList.add("hint");
+  }
   return d;
 }
 
@@ -397,6 +502,7 @@ function renderStats(){
   const canAuto = !S.won && S.stock.length === 0 &&
     S.tableau.every(p => p.every(c => c.faceUp));
   document.getElementById("btn-auto").style.display = canAuto ? "" : "none";
+  document.getElementById("stuck-banner").style.display = isStuck() ? "block" : "none";
 }
 
 function render(){
@@ -406,6 +512,7 @@ function render(){
   toprowEl.innerHTML = "";
   const stockSlot = document.createElement("div");
   stockSlot.className = "slot" + (S.stock.length ? " filled" : "");
+  if (hint && hint.from.type === "stock") stockSlot.classList.add("hint-target");
   stockSlot.dataset.drop = "stock";
   if (S.stock.length){
     stockSlot.appendChild(cardEl(S.stock[S.stock.length - 1], { type: "stock" }));
@@ -427,6 +534,7 @@ function render(){
   for (let f = 0; f < 4; f++){
     const slot = document.createElement("div");
     slot.className = "slot" + (S.foundations[f].length ? " filled" : "");
+    if (hint && hint.to && hint.to.type === "foundation" && hint.to.col === f) slot.classList.add("hint-target");
     slot.dataset.drop = "foundation";
     slot.dataset.col = f;
     if (S.foundations[f].length){
@@ -446,6 +554,7 @@ function render(){
   for (let c = 0; c < 7; c++){
     const colEl = document.createElement("div");
     colEl.className = "col" + (S.tableau[c].length ? "" : " empty");
+    if (hint && hint.to && hint.to.type === "tableau" && hint.to.col === c) colEl.classList.add("hint-target");
     colEl.dataset.drop = "tableau";
     colEl.dataset.col = c;
     const pile = S.tableau[c];
@@ -505,6 +614,7 @@ function autoMoveFrom(loc){
 }
 
 function handleTap(loc){
+  hint = null;
   if (!loc) { selected = null; render(); return; }
   if (loc.type === "stock"){ drawStock(); return; }
 
@@ -542,6 +652,7 @@ function handleTap(loc){
 
 let drag = null;
 boardEl.addEventListener("pointerdown", (e) => {
+  try { boardEl.setPointerCapture(e.pointerId); } catch(err) {}
   const loc = locFromEl(e.target);
   if (!loc) return;
   let from = null;
@@ -671,10 +782,15 @@ function autoFinish(){
   step();
 }
 
-document.getElementById("btn-new").addEventListener("click", () => {
+function requestNewGame(){
+  if (S && S.moves > 0 && !S.won &&
+      !confirm("今のゲームをやめて、新しいゲームを始める？")) return;
   document.getElementById("win-overlay").classList.remove("show");
   newGame();
-});
+}
+document.getElementById("btn-new").addEventListener("click", requestNewGame);
+document.getElementById("btn-stuck-new").addEventListener("click", requestNewGame);
+document.getElementById("btn-hint").addEventListener("click", showHint);
 document.getElementById("btn-again").addEventListener("click", () => {
   document.getElementById("win-overlay").classList.remove("show");
   newGame();
@@ -753,7 +869,9 @@ window.SOLITAIRE = {
   get state(){ return S; },
   newGame, drawStock, tryMove, undo, autoFinish,
   canPlaceOnTableau, canPlaceOnFoundation,
-  setState(s){ S = s; history = []; selected = null; render(); },
+  findMoves, hasAnyMove, isStuck, findHint, showHint,
+  get hint(){ return hint; },
+  setState(s){ S = s; history = []; selected = null; hint = null; render(); },
   get historyLength(){ return history.length; },
   soundMuted, toggleSound
 };

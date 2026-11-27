@@ -12,7 +12,7 @@
   h1{font-size:19px}
   h1 .sub{font-size:10px;opacity:.75;font-weight:normal;margin-left:4px}
   .brand-logo{height:26px;width:auto;vertical-align:middle;pointer-events:none;margin-left:6px}
-  .hbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer}
+  .hbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:10px 14px;font-size:13px;cursor:pointer}
   #stage{position:relative;width:min(96vw,480px);margin-top:4px}
   canvas{width:100%;display:block;border:2px solid #3b4a7a;border-radius:8px;background:#000;image-rendering:pixelated}
   #statuswin{position:absolute;top:8px;left:8px;background:rgba(8,8,24,.88);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:13px;line-height:1.55;min-width:118px;pointer-events:none;z-index:7}
@@ -482,8 +482,8 @@ function chestKey(m,x,y){return m+":"+x+","+y;}
 function newHero(){return {lv:1,exp:0,gold:0,hp:15,mp:0,weapon:0,armor:0,shield:0,items:{},flags:{},opened:{},doors:{}};}
 function newGame(){G={map:"castle",x:7,y:5,dir:0,wx:29,wy:23,hero:newHero(),steps:0,light:0,repel:0,over:false};document.getElementById("ov-title").classList.add("hidden");saveGame();render();updateStatus();say(["王様「おお、なつき！ 勇者ロトの血を引く者よ！","「竜王が 光の玉を 闇に閉ざしたのじゃ。","「竜王を倒し 光の玉を取り戻してくれ！","「そなたの横にある 宝の箱を取るが良い！"],null);}
 function saveGame(){try{localStorage.setItem("nanakue-save-v1",JSON.stringify(G));}catch(e){}}
-function loadGame(){try{var s=localStorage.getItem("nanakue-save-v1");return s?JSON.parse(s):null;}catch(e){return null;}}
-function continueGame(){var s=loadGame();if(!s)return;G=s;if(G.hero.flags.bridge)buildBridgeSilent();if(G.hero.flags.dk_stairs){MAPS.dkcastle.grid[1]=MAPS.dkcastle.grid[1].substring(0,7)+"U"+MAPS.dkcastle.grid[1].substring(8);MAPS.dkcastle.steps["7,1"]={map:"dkb2",x:5,y:2};}document.getElementById("ov-title").classList.add("hidden");render();updateStatus();say(["王様「おお なつき！ よくぞ戻ってきてくれた！"],null);}
+function loadGame(){try{var s=localStorage.getItem("nanakue-save-v1");if(!s)return null;var p=JSON.parse(s);if(!p||typeof p!=="object"||Array.isArray(p))return null;if(typeof p.map!=="string")return null;if(!p.hero||typeof p.hero!=="object"||Array.isArray(p.hero))return null;return p;}catch(e){return null;}}
+function continueGame(){var s=loadGame();if(!s)return;var dh=newHero();var h=Object.assign({},dh,s.hero);["items","flags","opened","doors"].forEach(function(k){h[k]=(s.hero[k]&&typeof s.hero[k]==="object"&&!Array.isArray(s.hero[k]))?Object.assign({},dh[k],s.hero[k]):Object.assign({},dh[k]);});["lv","exp","gold","hp","mp","weapon","armor","shield"].forEach(function(k){if(typeof h[k]!=="number"||!isFinite(h[k]))h[k]=dh[k];});var dg={map:"castle",x:7,y:5,dir:0,wx:29,wy:23,steps:0,light:0,repel:0,over:false};G=Object.assign({},dg,s);G.hero=h;["x","y","dir","wx","wy","steps","light","repel"].forEach(function(k){if(typeof G[k]!=="number"||!isFinite(G[k]))G[k]=dg[k];});if(G.hero.flags.bridge)buildBridgeSilent();if(G.hero.flags.dk_stairs){MAPS.dkcastle.grid[1]=MAPS.dkcastle.grid[1].substring(0,7)+"U"+MAPS.dkcastle.grid[1].substring(8);MAPS.dkcastle.steps["7,1"]={map:"dkb2",x:5,y:2};}document.getElementById("ov-title").classList.add("hidden");render();updateStatus();say(["王様「おお なつき！ よくぞ戻ってきてくれた！"],null);}
 function updateStatus(){var sw=document.getElementById("statuswin");if(sw)sw.classList.toggle("mini",G.map!=="world"&&!B);var h=G.hero,st=heroStats();if(B){var mh=document.getElementById("mon-hp");if(mh)mh.textContent="なつき HP "+h.hp+"/"+st.hpmax+"  MP "+h.mp+"/"+st.mpmax;}document.getElementById("st-lv").textContent="LV "+h.lv;document.getElementById("st-hp").textContent="HP "+h.hp+"/"+st.hpmax;document.getElementById("st-mp").textContent="MP "+h.mp+"/"+st.mpmax;document.getElementById("st-g").textContent="G "+h.gold;}
 /* ---------- sound ---------- */
 var AC=null,sndOn=true;

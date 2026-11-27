@@ -10,15 +10,31 @@
     font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
     background:linear-gradient(180deg,#2b6a52,#1e4d3a); color:#fff;
     min-height:100dvh; padding:14px 10px 22px; user-select:none; -webkit-user-select:none;
+    touch-action:manipulation;
   }
   .wrap{ max-width:480px; margin:0 auto; text-align:center; }
   h1{ font-size:23px; letter-spacing:.06em; }
   h1 .sub{ font-size:12.5px; font-weight:400; opacity:.85; margin-left:6px; }
 .brand-logo{height:36px;width:auto;vertical-align:middle;pointer-events:none;margin-left:6px}
   .hud{ display:flex; justify-content:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
-  .chip{ background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:4px 13px; font-size:13px; }
+  .chip{ background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:9px 13px; font-size:13px; }
   .chip b{ font-size:15px; }
-  button.sndbtn{ font:inherit; cursor:pointer; line-height:1.2; padding:4px 10px; }
+  button.sndbtn{ font:inherit; cursor:pointer; line-height:1.2; padding:9px 12px; }
+  .diffs{ display:flex; justify-content:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  button.diff{
+    font:inherit; font-size:13.5px; padding:9px 14px; min-height:38px; border-radius:999px;
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.25); color:#fff; cursor:pointer;
+  }
+  button.diff.on{ background:#ffd94d; color:#20402f; font-weight:700; border-color:transparent; }
+  .face.front.v1{ box-shadow:inset 0 0 0 4px #2f6fd0; }
+  .face.front.v2{ box-shadow:inset 0 0 0 4px #e84393; }
+  .vmark{
+    position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%;
+    color:#fff; font-size:12px; font-weight:800; line-height:20px; text-align:center;
+    pointer-events:none; box-shadow:0 1px 3px rgba(0,0,0,.4);
+  }
+  .vmark.v1{ background:#2f6fd0; }
+  .vmark.v2{ background:#e84393; }
   #board{
     width:min(92vw, calc((100dvh - 240px) * 0.75), 420px);
     margin:14px auto 0; display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;
@@ -64,7 +80,7 @@
   .rcard p{ font-size:14px; line-height:1.8; }
   .rcard .big{ font-size:26px; font-weight:800; color:#b3543f; }
   .rcard button{ margin-top:14px; }
-  footer{ margin-top:16px; font-size:11px; opacity:.65; line-height:1.6; }
+  footer{ margin-top:16px; font-size:12.5px; opacity:.85; line-height:1.6; }
 </style>
 <script src="img/img1.js"></script><script src="img/img2.js"></script><script src="img/img3.js"></script><script src="img/img4.js"></script><script src="img/img5.js"></script><script src="img/img6.js"></script><script src="img/img7.js"></script><script src="img/img8.js"></script>
 </head>
@@ -78,11 +94,16 @@
     <span class="chip">ベスト <b id="best">―</b></span>
     <button class="chip sndbtn" id="snd" type="button" aria-label="サウンド切替">🔊</button>
   </div>
+  <div class="diffs" role="group" aria-label="難易度">
+    <button type="button" class="diff" data-pairs="8">かんたん 8ペア</button>
+    <button type="button" class="diff" data-pairs="12">ふつう 12ペア</button>
+    <button type="button" class="diff" data-pairs="18">むずかしい 18ペア</button>
+  </div>
   <div id="board"></div>
   <div class="btns">
     <button class="act sub" id="restart">🔁 最初から</button>
   </div>
-  <footer>カードを2枚めくって、同じ絵をそろえよう。8ペア全部そろえばクリアだよ。</footer>
+  <footer>カードを2枚めくって、同じ絵をそろえよう。全部のペアがそろえばクリアだよ。難易度が上がると、同じ絵でも印（★・●）が違うと別のペアになるよ。</footer>
 </div>
 
 <div id="result" class="hidden">
@@ -98,7 +119,14 @@
 <script>
 'use strict';
 const IMGS = [window.__IMG1, window.__IMG2, window.__IMG3, window.__IMG4, window.__IMG5, window.__IMG6, window.__IMG7, window.__IMG8];
-const N = 16, PAIRS = 8;
+/* 難易度：ペア数 → 列数。絵柄は8種しかないので、9ペア目以降は
+   同じ絵に印（バリエーション）を付けて別ペアとして区別する */
+const DIFFS = { 8: { cols: 4 }, 12: { cols: 4 }, 18: { cols: 6 } };
+const DIFF_KEY = 'nanahun-shinkei-difficulty-v1';
+let PAIRS = 8, COLS = 4, N = 16;
+function faceOf(type){
+  return { img: type % IMGS.length, variant: Math.floor(type / IMGS.length) };
+}
 let types = [];        /* length 16, values 0..7 */
 let openFlags = [];    /* card is face up (pending or matched) */
 let matchedFlags = [];
@@ -106,8 +134,33 @@ let openIdx = [];      /* indices of face-up unmatched cards (0..2) */
 let lock = false;
 let moves = 0, matchedPairs = 0, cleared = false;
 let started = false, startAt = 0, elapsedMs = 0, timerId = null, resolveId = null;
-let best = null;
-try { best = JSON.parse(localStorage.getItem('nanahun-shinkei-best-v1') || 'null'); } catch (e) { best = null; }
+let best = null;  /* 現在の難易度のベスト */
+/* ベストは難易度別に保持する。保存形式は後方互換：トップレベルの moves/time が
+   8ペアのベスト（旧形式そのまま）で、12/18ペアは others に入れる */
+const bests = { 8: null, 12: null, 18: null };
+try {
+  const raw = JSON.parse(localStorage.getItem('nanahun-shinkei-best-v1') || 'null');
+  if (raw){
+    if (typeof raw.moves === 'number') bests[8] = { moves: raw.moves, time: raw.time || 0 };
+    if (raw.others) for (const k of [12, 18])
+      if (raw.others[k] && typeof raw.others[k].moves === 'number') bests[k] = raw.others[k];
+  }
+} catch (e) {}
+function persistBests(){
+  const out = {};
+  if (bests[8]){ out.moves = bests[8].moves; out.time = bests[8].time; }
+  const others = {};
+  for (const k of [12, 18]) if (bests[k]) others[k] = bests[k];
+  if (Object.keys(others).length) out.others = others;
+  try { localStorage.setItem('nanahun-shinkei-best-v1', JSON.stringify(out)); } catch (e) {}
+}
+/* 前回の難易度を復元 */
+try {
+  const savedDiff = parseInt(localStorage.getItem(DIFF_KEY) || '8', 10);
+  if (DIFFS[savedDiff]) PAIRS = savedDiff;
+} catch (e) {}
+COLS = DIFFS[PAIRS].cols; N = PAIRS * 2;
+best = bests[PAIRS];
 const $ = id => document.getElementById(id);
 
 /* ---- sound: Web Audio, synthesized, lazily created on first gesture ---- */
@@ -168,6 +221,14 @@ function fmt(ms){
   const s = Math.floor(ms / 1000);
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 }
+function layoutBoard(){
+  const b = $('board');
+  const rows = N / COLS;
+  b.style.gridTemplateColumns = 'repeat(' + COLS + ', 1fr)';
+  const availH = Math.max(260, window.innerHeight - 320);
+  const w = Math.min(window.innerWidth * 0.92, availH * (COLS * 0.75 / rows), COLS === 6 ? 460 : 420);
+  b.style.width = Math.floor(w) + 'px';
+}
 function setup(layout){
   types = layout.slice();
   openFlags = Array(N).fill(false);
@@ -178,7 +239,17 @@ function setup(layout){
   if (timerId){ clearInterval(timerId); timerId = null; }
   if (resolveId){ clearTimeout(resolveId); resolveId = null; }
   $('result').classList.add('hidden');
+  layoutBoard();
   render();
+}
+function setDifficulty(p){
+  if (!DIFFS[p]) return;
+  if (p === PAIRS){ return; }
+  if (moves > 0 && !cleared && !confirm('今のゲームをやめて、難易度を変える？')) return;
+  PAIRS = p; COLS = DIFFS[p].cols; N = PAIRS * 2;
+  best = bests[PAIRS];
+  try { localStorage.setItem(DIFF_KEY, String(p)); } catch (e) {}
+  newGame();
 }
 function newGame(){
   const layout = [];
@@ -241,7 +312,8 @@ function saveBest(){
   const rec = { moves: moves, time: Math.round(elapsedMs / 1000) };
   if (!best || rec.moves < best.moves || (rec.moves === best.moves && rec.time < best.time)){
     best = rec;
-    try { localStorage.setItem('nanahun-shinkei-best-v1', JSON.stringify(best)); } catch (e) {}
+    bests[PAIRS] = rec;
+    persistBests();
   }
 }
 function showResult(){
@@ -264,10 +336,17 @@ function render(){
     sp.textContent = '7分';
     back.appendChild(sp);
     const front = document.createElement('div');
-    front.className = 'face front';
+    const face = faceOf(types[i]);
+    front.className = 'face front' + (face.variant ? ' v' + face.variant : '');
     const img = document.createElement('img');
-    img.src = IMGS[types[i]]; img.alt = '';
+    img.src = IMGS[face.img]; img.alt = '';
     front.appendChild(img);
+    if (face.variant){
+      const vm = document.createElement('span');
+      vm.className = 'vmark v' + face.variant;
+      vm.textContent = face.variant === 1 ? '★' : '●';
+      front.appendChild(vm);
+    }
     inner.appendChild(back);
     inner.appendChild(front);
     btn.appendChild(inner);
@@ -275,16 +354,28 @@ function render(){
     b.appendChild(btn);
   }
   $('moves').textContent = moves;
-  $('pairs').textContent = matchedPairs + '/8';
+  $('pairs').textContent = matchedPairs + '/' + PAIRS;
   $('time').textContent = fmt(elapsedMs);
   $('best').textContent = best ? (best.moves + '手') : '―';
+  document.querySelectorAll('.diff').forEach(b =>
+    b.classList.toggle('on', Number(b.dataset.pairs) === PAIRS));
 }
-$('again').addEventListener('click', newGame);
-$('restart').addEventListener('click', newGame);
+function requestNewGame(){
+  if (moves > 0 && !cleared && !confirm('今のゲームをやめて、最初から遊ぶ？')) return;
+  newGame();
+}
+$('again').addEventListener('click', requestNewGame);
+$('restart').addEventListener('click', requestNewGame);
+document.querySelectorAll('.diff').forEach(b =>
+  b.addEventListener('click', () => setDifficulty(Number(b.dataset.pairs))));
+window.addEventListener('resize', layoutBoard);
 $('snd').addEventListener('click', toggleSound);
 updateSndBtn();
 window.SHINKEI = {
   newGame: newGame,
+  setDifficulty: setDifficulty,
+  get difficulty(){ return PAIRS; },
+  get bests(){ return bests; },
   setLayout: function(arr){ setup(arr.slice()); },
   flip: flip,
   forceResolve: forceResolve,
@@ -297,7 +388,9 @@ window.SHINKEI = {
       matchedPairs: matchedPairs,
       moves: moves,
       cleared: cleared,
-      started: started
+      started: started,
+      pairs: PAIRS,
+      cols: COLS
     };
   }
 };

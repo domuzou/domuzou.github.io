@@ -9,7 +9,8 @@
   body{
     font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
     background:linear-gradient(180deg,#2b6a52,#1e4d3a); color:#fff;
-    min-height:100dvh; padding:14px 10px 22px; user-select:none; -webkit-user-select:none;
+    min-height:100dvh; padding:14px 4px 22px; user-select:none; -webkit-user-select:none;
+    touch-action:manipulation;
   }
   .wrap{ max-width:480px; margin:0 auto; text-align:center; }
   h1{ font-size:23px; letter-spacing:.06em; }
@@ -22,8 +23,8 @@
   .chipbtn:active{ transform:scale(.94); }
   #msg{ margin-top:9px; font-size:13px; min-height:20px; line-height:1.5; color:#ffe9a8; }
   #board{
-    width:min(94vw, calc((100dvh - 240px) * 0.7692), 440px);
-    margin:10px auto 0; display:grid; grid-template-columns:repeat(10, 1fr); gap:3px;
+    width:min(97.5vw, calc((100dvh - 240px) * 0.7692), 440px);
+    margin:10px auto 0; display:grid; grid-template-columns:repeat(10, 1fr); gap:2px;
   }
   .cell{ aspect-ratio:1; border-radius:7px; overflow:hidden; position:relative; background:rgba(255,255,255,.10); }
   .cell.empty{ background:transparent; }
@@ -45,7 +46,7 @@
   .card p{ font-size:14px; line-height:1.7; }
   .card .big{ font-size:30px; font-weight:800; color:#b3543f; }
   .card button{ margin-top:14px; }
-  footer{ margin-top:16px; font-size:11px; opacity:.65; }
+  footer{ margin-top:16px; font-size:12.5px; opacity:.85; }
 </style>
 </head>
 <body>
@@ -171,6 +172,12 @@ function tap(r, c){
   if (over) return;
   const g = groupAt(r, c);
   if (g.length < 2){
+    /* 誤タップ耐性：選択中グループの隣のマス（消せないマス）をタップしたら、
+       狙いのグループを確定として消す。別の消せるグループなら今まで通り選択し直す */
+    if (sel && sel.some(p => Math.abs(p[0] - r) + Math.abs(p[1] - c) === 1)){
+      removeSel(sel);
+      return;
+    }
     sel = null; selKey = ''; render();
     if (grid[r][c] !== null){ sfxBad(); msg('1つだけじゃ消せないよ。2つ以上くっついてる顔を選んでね'); }
     return;
@@ -236,7 +243,10 @@ function render(){
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++){
     const d = document.createElement('div');
     const v = grid[r][c];
-    if (v === null){ d.className = 'cell empty'; }
+    if (v === null){
+      d.className = 'cell empty';
+      (function(rr, cc){ d.addEventListener('click', () => tap(rr, cc)); })(r, c);
+    }
     else {
       d.className = 'cell' + (selSet.has(r + ',' + c) ? ' sel' : '');
       const img = document.createElement('img');
@@ -258,8 +268,13 @@ function showResult(left, bonus){
   $('r-bonus').textContent = bonus ? '全消しボーナス +1000点！' : '';
   $('result').classList.remove('hidden');
 }
-$('again').addEventListener('click', newGame);
-$('restart').addEventListener('click', newGame);
+function requestNewGame(){
+  if (!over && (score > 0 || history.length > 0) &&
+      !confirm('今のゲームをやめて、最初から遊ぶ？')) return;
+  newGame();
+}
+$('again').addEventListener('click', requestNewGame);
+$('restart').addEventListener('click', requestNewGame);
 $('undo').addEventListener('click', undo);
 $('snd').addEventListener('click', toggleSound);
 updateSndBtn();

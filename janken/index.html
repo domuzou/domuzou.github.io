@@ -20,8 +20,8 @@
   .sub{ flex:1; min-width:0; font-size:11px; opacity:.85; margin:0; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .brand-logo{height:26px;width:auto;vertical-align:middle;pointer-events:none}
   #sndbtn{
-    position:static; flex:none; width:32px; height:32px;
-    font-size:15px; line-height:1; border-radius:50%; color:#fff7e8;
+    position:static; flex:none; width:40px; height:40px;
+    font-size:17px; line-height:1; border-radius:50%; color:#fff7e8;
     background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.3);
     cursor:pointer; padding:0;
   }
@@ -116,6 +116,7 @@
   }
   .cbtn:active{ transform:scale(.96); }
   .hands-btns{ flex:none; display:flex; gap:8px; margin-top:8px; }
+  button{ touch-action:manipulation; }
   .hbtn{
     flex:1; font:inherit; cursor:pointer; border:none; border-radius:18px;
     background:linear-gradient(180deg,#ffd968,#f2b93c); color:#3a2c00;
@@ -600,7 +601,7 @@ async function finishThrow(player, machine, rethrow){
     setVoice('ズコー');
     say('lose');
     sndLose();
-    setResult(lost > 0 ? 'まけ… 当たり ' + lost + ' 枚は全部なし' : 'まけ… ゲームオーバー');
+    setResult(lost > 0 ? 'まけ… 当たり ' + lost + ' 枚は全部なし' : rethrow ? 'まけ…' : G.medals > 0 ? 'まけ… メダル -1枚' : 'まけ… ゲームオーバー');
     checkOver();
   }
   G.lastOutcome = outcome;
@@ -682,8 +683,6 @@ window.JANKEN = {
         localStorage.removeItem(BEST_KEY);
         localStorage.removeItem(GAMES_KEY);
         localStorage.removeItem(COLLECTED_KEY);
-        localStorage.removeItem('nanahun-janken-pool');
-        localStorage.removeItem('nanahun-janken-jackpots');
       } catch (e) {}
     }
   }

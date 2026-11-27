@@ -13,7 +13,7 @@ header{text-align:center;margin:6px 0 10px;position:relative}
 header h1{font-size:21px;margin:0}
 header h1 .ver{font-size:11px;color:var(--sub);margin-left:6px}
 .brand-logo{height:32px;width:auto;vertical-align:middle;pointer-events:none;margin-left:6px}
-button{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:14px;cursor:pointer}
+button{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px 10px;font-size:14px;cursor:pointer}
 button:active{transform:scale(.97)}
 button.primary{background:var(--accent);color:#231a00;border-color:var(--accent);font-weight:700}
 #stage-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -366,7 +366,10 @@ document.getElementById("btn-sound").addEventListener("click", toggleSound);
 updateSndBtn();
 document.getElementById("btn-next-stage").addEventListener("click", () => { if(stage < IMAGES.length - 1) startStage(stage + 1); });
 document.getElementById("btn-again").addEventListener("click", resetAttempt);
-document.getElementById("btn-reset").addEventListener("click", resetAttempt);
+document.getElementById("btn-reset").addEventListener("click", () => {
+  if(!cleared && moves > 0 && !confirm("今の挑戦をやめて、最初から並べ直す？")) return;
+  resetAttempt();
+});
 document.getElementById("btn-back").addEventListener("click", backToSelect);
 document.getElementById("btn-back2").addEventListener("click", backToSelect);
 document.getElementById("btn-share").addEventListener("click", shareStage);

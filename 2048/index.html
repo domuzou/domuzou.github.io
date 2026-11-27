@@ -18,7 +18,7 @@
   .hud{ display:flex; justify-content:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
   .chip{ background:#bbada0; color:#fff; border-radius:8px; padding:4px 14px; font-size:13px; }
   .chip b{ font-size:16px; }
-  #msg{ margin-top:9px; font-size:13px; min-height:20px; line-height:1.5; color:#a08b6d; }
+  #msg{ margin-top:9px; font-size:13px; min-height:20px; line-height:1.5; color:#776e65; }
   #board{
     width:min(94vw, calc(100dvh - 250px), 440px);
     margin:10px auto 0; display:grid; grid-template-columns:repeat(4, 1fr); gap:9px;
@@ -30,6 +30,9 @@
     border:3px solid #d8c3a5; background:#eee4da;
   }
   .tile.max{ box-shadow:0 0 14px 3px rgba(245,197,24,.85); }
+  .tile.g1{ box-shadow:0 0 18px 5px rgba(245,197,24,.9); }
+  .tile.g2{ box-shadow:0 0 22px 7px rgba(245,197,24,.95); }
+  .tile.g3{ box-shadow:0 0 28px 10px rgba(255,210,40,1); }
   .tile img{ width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
   .tile-label{
     position:absolute; left:3px; bottom:3px; color:#fff; font-size:11px; font-weight:700; line-height:1;
@@ -47,7 +50,7 @@
   }
   button.sub{ background:rgba(119,110,101,.14); color:#776e65; border:1px solid rgba(119,110,101,.4); box-shadow:none; }
   button:active{ transform:scale(.96); }
-  button.snd{ padding:5px 11px; font-size:14px; line-height:1.2; }
+  button.snd{ padding:10px 20px; }
   #result{ position:fixed; inset:0; background:rgba(238,228,218,.78); display:flex; align-items:center; justify-content:center; z-index:10; padding:20px; }
   #result.hidden{ display:none; }
   .card{ background:#fff; color:#776e65; border-radius:20px; padding:26px 30px; text-align:center; max-width:320px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,.25); }
@@ -55,7 +58,7 @@
   .card p{ font-size:14px; line-height:1.7; }
   .card .big{ font-size:30px; font-weight:800; color:#b3543f; }
   .card button{ margin-top:14px; }
-  footer{ margin-top:16px; font-size:11px; opacity:.7; }
+  footer{ margin-top:16px; font-size:12px; opacity:.7; }
 </style>
 </head>
 <body>
@@ -72,7 +75,7 @@
     <button class="sub" id="undo">↩ 戻る</button>
     <button class="sub" id="restart">🔁 最初から</button>
   </div>
-  <footer>同じ顔をくっつけて大きく育てよう。2048の顔ができたらゴール！</footer>
+  <footer>同じ顔をくっつけて大きく育てよう。2048の顔ができたらゴール！<br>「↩ 戻る」は何手でも戻れるよ。</footer>
 </div>
 
 <div id="result" class="hidden">
@@ -266,7 +269,7 @@ function render(){
     if (v !== 0){
       const st = Math.min(stageOf(v), 8);
       const t = document.createElement('div');
-      t.className = 'tile' + (st >= 8 ? ' max' : '') + (i === lastSpawn ? ' new' : '') + (lastMerged.indexOf(i) >= 0 ? ' merged' : '');
+      t.className = 'tile' + (st >= 8 ? ' max' : '') + (v >= 2048 ? ' g3' : v >= 1024 ? ' g2' : v >= 512 ? ' g1' : '') + (i === lastSpawn ? ' new' : '') + (lastMerged.indexOf(i) >= 0 ? ' merged' : '');
       t.style.borderColor = FRAME[st - 1];
       const img = document.createElement('img');
       img.src = IMGS[st - 1]; img.alt = '';
@@ -308,7 +311,7 @@ $('snd').addEventListener('click', toggleSound);
 document.addEventListener('pointerdown', () => { ensureAudio(); });
 renderSnd();
 $('again').addEventListener('click', newGame);
-$('restart').addEventListener('click', newGame);
+$('restart').addEventListener('click', () => { if (score > 0 && !confirm('最初からやり直す？')) return; newGame(); });
 $('undo').addEventListener('click', undo);
 window.G2048 = {
   newGame: newGame, move: move, undo: undo,

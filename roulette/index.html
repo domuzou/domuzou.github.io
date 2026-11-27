@@ -17,10 +17,10 @@
   header.apphead{ display:flex; align-items:center; gap:8px; text-align:left; }
   .headmain{ flex:1; min-width:0; }
   h1{ font-size:17px; letter-spacing:.05em; white-space:nowrap; }
-  .sub{ font-size:10px; opacity:.8; margin-top:0; white-space:nowrap; }
+  .sub{ font-size:11px; opacity:.8; margin-top:0; white-space:nowrap; }
   .brand-logo{height:22px;width:auto;vertical-align:-5px;margin-right:5px;pointer-events:none}
   #sndbtn{
-    flex:none; width:30px; height:30px;
+    flex:none; width:40px; height:40px;
     font-size:16px; line-height:1; border-radius:50%; color:#fdf6e3;
     background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.3);
     cursor:pointer; padding:0;
@@ -67,6 +67,7 @@
   .chips button, .types button, .numgrid button, #spin, #restart{
     font:inherit; cursor:pointer; font-weight:700;
   }
+  button{ touch-action:manipulation; }
   .types{ display:flex; flex-wrap:nowrap; gap:5px; margin-top:5px; }
   .types button{
     flex:1 1 0; font-size:12.5px; padding:6px 1px; color:#fdf6e3; border-radius:999px; white-space:nowrap;
@@ -74,14 +75,14 @@
   }
   .types button[data-type="number"]{ flex:1 1 0; }
   .types button.sel{ background:#f2c14e; color:#3a2c00; border-color:#f2c14e; }
-  .types button .pay{ font-size:10px; opacity:.8; margin-left:2px; }
+  .types button .pay{ font-size:11px; opacity:.8; margin-left:2px; }
   .numgrid{
-    display:grid; grid-template-columns:repeat(12,1fr); gap:4px;
+    display:grid; grid-template-columns:repeat(6,1fr); gap:4px;
     margin-top:5px; transition:opacity .2s;
   }
   .numgrid.dim{ opacity:.35; }
   .numgrid button{
-    font-size:12.5px; padding:6px 0; color:#fdf6e3; border-radius:999px;
+    font-size:13px; padding:11px 0; color:#fdf6e3; border-radius:999px;
     background:rgba(255,255,255,.12); border:2px solid rgba(255,255,255,.3);
   }
   .numgrid button.red{ background:rgba(216,64,74,.55); }
@@ -159,7 +160,7 @@
 
   <div class="paytable">
     <div class="cell"><span class="what">赤・黒・偶数・奇数</span><span class="times">2倍</span></div>
-    <div class="cell"><span class="what">数字1点</span><span class="times">10倍</span></div>
+    <div class="cell"><span class="what">数字1点</span><span class="times">12倍</span></div>
   </div>
 
   <div class="types" id="types">
@@ -167,7 +168,7 @@
     <button type="button" data-type="black">⚫ 黒<span class="pay">×2</span></button>
     <button type="button" data-type="even">偶数<span class="pay">×2</span></button>
     <button type="button" data-type="odd">奇数<span class="pay">×2</span></button>
-    <button type="button" data-type="number">🎯 1点<span class="pay">×10</span></button>
+    <button type="button" data-type="number">🎯 1点<span class="pay">×12</span></button>
   </div>
   <div class="numgrid dim" id="numgrid"></div>
 
@@ -237,9 +238,10 @@ const IDLE_LINE = 'いらっしゃい！かけ方を選んで「まわす！」�
 const OVER_LINE = 'メダルがなくなっちゃった…でも大丈夫、下のボタンでもう一度はじめられるよ！';
 
 /* ---------------- pure logic ---------------- */
-function colorOf(pocket){ return pocket % 2 === 1 ? 'red' : 'black'; }
+const RED_POCKETS = [1, 4, 5, 8, 9, 12];
+function colorOf(pocket){ return RED_POCKETS.indexOf(pocket) >= 0 ? 'red' : 'black'; }
 function faceOf(pocket){ return ((pocket - 1) % 8) + 1; }
-function multiplier(type){ return type === 'number' ? 10 : 2; }
+function multiplier(type){ return type === 'number' ? 12 : 2; }
 function betWins(type, number, pocket){
   if (type === 'red') return colorOf(pocket) === 'red';
   if (type === 'black') return colorOf(pocket) === 'black';
