@@ -131,7 +131,7 @@
     <b>目的</b>：仲間3人を酒場でつのり、世界を旅して6つのオーブを集め、大魔王を倒す冒険RPGです。<br>
     <b>移動</b>：十字ボタンや矢印キーで歩きます。人に近づいて「けってい」で話しかけます。<br>
     <b>戦闘</b>：全員のコマンドを決めると、すばやい順に行動します。呪文は敵のグループ（同じ敵の集まり）ごとに狙えます。にげると全滅を避けられますが、失敗することもあります。<br>
-    <b>職業と転職</b>：戦士・武闘家・魔法使い・僧侶・盗賊・商人・遊び人から選べます。レベル20以上になると神殿で転職でき、能力が半分引き継がれます。「さとりの書」があれば賢者にもなれます。<br>
+    <b>職業と転職</b>：戦士・武闘家・魔法使い・僧侶・盗賊・商人・遊び人から選べます。レベル20以上になると神殿で転職でき、能力が半分引き継がれます。「さとりの書」があれば賢者にもなれます。職業ごとの得意技（武闘家の会心、盗賊の盗み、商人の目利き、遊び人の気まぐれ等）を使い分けるのが攻略のコツです。<br>
     <b>昼と夜</b>：歩くと時間が過ぎ、夜になると出てくる敵や人の様子が変わります。<br>
     <b>全滅したら</b>：所持金が半分になって、最後にセーブした町で目覚めます。こまめなセーブがおすすめです。
   </div>
@@ -145,11 +145,11 @@
 const JOBS = {
   hero:     { name:"ゆうしゃ", sprite:"wakka",     canSpell:true,
               lv1:{str:12,agi:8,vit:11,int:9,luk:10}, grow:{str:2.6,agi:1.8,vit:2.4,int:1.9,luk:1.6}, mpGrow:1.0,
-              weapons:["wp_hinoki","wp_konbo","wp_dou","wp_tetsuyari","wp_hagane","wp_zombi","wp_dragon","wp_ouja"],
+              weapons:["wp_hinoki","wp_konbo","wp_dou","wp_tetsuyari","wp_hagane","wp_zombi","wp_dragon","wp_hayabusa","wp_ouja"],
               armors:["ar_nuno","ar_tabibito","ar_kawa","ar_kusari","ar_tetsu","ar_hagane","ar_mahou","ar_dragon","ar_hikari"] },
   warrior:  { name:"せんし", sprite:"warrior",    canSpell:false,
               lv1:{str:14,agi:5,vit:13,int:4,luk:6}, grow:{str:3.2,agi:1.1,vit:3.0,int:0.6,luk:0.9}, mpGrow:0,
-              weapons:["wp_hinoki","wp_konbo","wp_dou","wp_tetsuyari","wp_hagane","wp_ono","wp_zombi","wp_dragon","wp_ouja"],
+              weapons:["wp_hinoki","wp_konbo","wp_dou","wp_tetsuyari","wp_hagane","wp_ono","wp_zombi","wp_dragon","wp_hayabusa","wp_ouja"],
               armors:["ar_nuno","ar_tabibito","ar_kawa","ar_kusari","ar_tetsu","ar_hagane","ar_mahou","ar_dragon","ar_hikari"] },
   martial:  { name:"ぶとうか", sprite:"martial",  canSpell:false,
               lv1:{str:13,agi:14,vit:10,int:5,luk:9}, grow:{str:3.0,agi:3.2,vit:2.2,int:0.7,luk:1.4}, mpGrow:0, critLv:true,
@@ -240,7 +240,7 @@ const WEAPONS = {
   wp_ono:{ name:"てつのオノ", atk:42, price:2500 }, wp_muchi:{ name:"はがねのむち", atk:40, price:3100, group:true },
   wp_powerknuckle:{ name:"パワーナックル", atk:55, price:7100 }, wp_zombi:{ name:"ゾンビキラー", atk:65, price:9800 },
   wp_goldtsume:{ name:"おうごんのつめ", atk:75, price:15000 }, wp_dragon:{ name:"ドラゴンキラー", atk:82, price:15000 },
-  wp_hayabusa:{ name:"はやぶさのけん", atk:88, price:25000, twice:true }, wp_ouja:{ name:"おうじゃのけん", atk:95, price:35000 },
+  wp_hayabusa:{ name:"はやぶさのけん", atk:88, price:18000, twice:true }, wp_ouja:{ name:"おうじゃのけん", atk:95, price:24000 },
 };
 const ARMORS = {
   ar_none:{ name:"（なし）", def:0, price:0 }, ar_nuno:{ name:"ぬののふく", def:3, price:10 },
@@ -305,7 +305,7 @@ const MONSTERS = {
 };
 /* ボス: actions は重み付き。regen=毎ターン回復, acts=1ターンの行動回数 */
 const BOSSES = {
-  b_gando1: { name:"おおぬすっと ガンド", sprite:"boss_gando", hp:300, atk:70, def:30, agi:20, exp:600, gold:500, acts:1,
+  b_gando1: { name:"おおぬすっと ガンド", sprite:"boss_gando", hp:300, atk:70, def:30, agi:20, exp:600, gold:500, acts:2,
               minions:["m_skeleton","m_skeleton","m_dog"] },
   b_gando2: { name:"おおぬすっと ガンド", sprite:"boss_gando", hp:700, atk:95, def:40, agi:26, exp:1600, gold:900, acts:1, regen:30,
               minions:["m_evilmage","m_dog"], ai:[["attack",4],["spell:yowaru",1]] },
@@ -1689,7 +1689,8 @@ async function doTavern(npc){
     if (i === opts.length - 1){ again = false; break; }
     if (opts[i].label.indexOf("つのる") >= 0){
       const jobs = ["warrior","martial","mage","priest","thief","merchant","playboy"];
-      const j = await askMenu("どの職業の なかまを つのる？", jobs.map(function(jb){ return { label: JOBS[jb].name }; }).concat([{ label: "やめる" }]));
+      const JOB_SUB = { warrior: "力と守りが自慢・呪文なし", martial: "素早さと会心の一撃", mage: "強力な攻撃呪文", priest: "回復と補助の呪文", thief: "素早く、戦利品を盗む", merchant: "戦利品のゴールドが増える", playboy: "戦闘で気まぐれ・賢者への近道" };
+      const j = await askMenu("どの職業の なかまを つのる？", jobs.map(function(jb){ return { label: JOBS[jb].name, sub: JOB_SUB[jb] }; }).concat([{ label: "やめる" }]));
       if (j >= jobs.length) continue;
       const names = NAME_CANDIDATES.filter(function(n){ return !G.party.some(function(m){ return m.name === n; }); }).slice(0, 4);
       const k = await askMenu("名前は？", names.map(function(n){ return { label: n }; }));
@@ -1876,6 +1877,7 @@ function drawBattle(){
   });
   renderPartyBar();
 }
+function ailResist(t){ return 1 - Math.min(0.4, ((t.base && t.base.luk) || 0) * 0.005); }
 function physDamage(atk, def, crit){
   if (crit) return Math.max(1, Math.round(atk * R(0.85, 1.01)));
   const base = atk - def / 2;
@@ -1952,7 +1954,7 @@ async function battleLoop(){
     const acts = [];
     G.party.forEach(function(m, i){
       if (m.status === "dead" || m.hp <= 0) return;
-      const cmd = commands[i] || { type: "defend" };
+      let cmd = commands[i] || { type: "defend" };
       if (cmd.type === "run") cmd = { type: "defend" };
       acts.push({ side: "ally", idx: i, cmd: cmd, agi: m.base.agi * R(0.5, 1.0) });
     });
@@ -2096,6 +2098,20 @@ async function allyAction(idx, cmd){
   if (m.status === "sleep"){ pushMsg(m.name + "は 眠っている…。"); if (Math.random() < 0.33){ m.status = "ok"; pushMsg(m.name + "は 目を 覚ました！"); } return; }
   m._defending = cmd.type === "defend";
   if (cmd.type === "defend"){ pushMsg(m.name + "は 身を まもっている。"); return; }
+  /* あそびにんの気まぐれ: たまに指示と違う行動をとる */
+  if (m.job === "playboy" && (cmd.type === "attack" || cmd.type === "spell" || cmd.type === "item") && Math.random() < 0.22){
+    const roll = Math.random();
+    if (roll < 0.5){ pushMsg(m.name + "は あそんでいる！"); sfx("ng"); return; }
+    const es = aliveEnemies();
+    if (!es.length) return;
+    const t = es[Math.floor(Math.random() * es.length)];
+    if (roll < 0.8){ t.laugh = true; pushMsg(m.name + "の ジョークに " + t.name + "は 笑いだした！"); sfx("win"); return; }
+    const atkP = atkOf(m) * B.buffs[idx].atkMul;
+    const dmgP = physDamage(atkP, Math.max(0, t.def + t.defAdd), true);
+    pushMsg(m.name + "の きまぐれな いちげき！ " + t.name + "に " + dmgP + "の ダメージ！"); sfx("crit");
+    damageEnemy(t, dmgP, false);
+    return;
+  }
   if (cmd.type === "attack"){
     const w = WEAPONS[m.equipW];
     let targets = [];
@@ -2106,7 +2122,7 @@ async function allyAction(idx, cmd){
     for (let h = 0; h < hits; h++){
       for (const e of targets){
         if (e.hp <= 0) continue;
-        const critRate = JOBS[m.job].critLv ? Math.min(0.25, m.lv / 256) : 1 / 64;
+        const critRate = JOBS[m.job].critLv ? Math.min(0.25, m.lv / 256) : 1 / 64 + m.base.luk / 1200;
         const crit = Math.random() < critRate;
         const atk = atkOf(m) * B.buffs[idx].atkMul;
         const dmg = physDamage(atk, Math.max(0, e.def + e.defAdd), crit);
@@ -2208,6 +2224,7 @@ async function enemyAction(e){
   const B = battleState;
   if (e.hp <= 0 || e.fled) return;
   if (e.status.sleep){ e.status.sleep--; pushMsg(e.name + "は 眠っている…。"); if (e.status.sleep <= 0) pushMsg(e.name + "は 目を 覚ました！"); return; }
+  if (e.laugh){ e.laugh = false; pushMsg(e.name + "は 笑って 動けない！"); return; }
   if (e.data.runRate && Math.random() < e.data.runRate){ e.fled = true; pushMsg(e.name + "は 逃げ出してしまった！"); return; }
   const ai = e.data.ai || [["attack", 1]];
   let total = 0; ai.forEach(function(a){ total += a[1]; });
@@ -2223,7 +2240,7 @@ async function enemyAction(e){
     if (crit) { pushMsg("つうこんの いちげき！"); sfx("crit"); } else sfx("hit");
     pushMsg(e.name + "の こうげき！ " + t.name + "に " + dmg + "の ダメージ！");
     damageAlly(t, dmg);
-    if (e.data.poison && t.status === "ok" && Math.random() < e.data.poison){ t.status = "poison"; pushMsg(t.name + "は 毒に おかされた！"); }
+    if (e.data.poison && t.status === "ok" && Math.random() < e.data.poison * ailResist(t)){ t.status = "poison"; pushMsg(t.name + "は 毒に おかされた！"); }
     return;
   }
   if (act.indexOf("spell:") === 0){
@@ -2231,7 +2248,7 @@ async function enemyAction(e){
     if (sp.kind === "heal"){ if (e.hp < e.maxhp * 0.6){ e.hp = Math.min(e.maxhp, e.hp + RI(sp.pow[0], sp.pow[1])); pushMsg(e.name + "は " + sp.name + "で 回復した！"); sfx("heal"); } return; }
     if (sp.kind === "status" || sp.kind === "debuff"){
       pushMsg(e.name + "は " + sp.name + "を となえた！"); sfx("spell");
-      if (sp.ail === "sleep") targets.forEach(function(t){ if (Math.random() < 0.4){ t.status = "sleep"; pushMsg(t.name + "は 眠ってしまった！"); } });
+      if (sp.ail === "sleep") targets.forEach(function(t){ if (Math.random() < 0.4 * ailResist(t)){ t.status = "sleep"; pushMsg(t.name + "は 眠ってしまった！"); } });
       if (sp.ail === "seal") targets.forEach(function(t){ if (Math.random() < 0.5){ t._sealed = true; pushMsg(t.name + "の 呪文が 封じられた！"); } });
       if (sp.stat === "def") G.party.forEach(function(t, ti){ B.buffs[ti].defAdd = Math.max(-50, B.buffs[ti].defAdd - 20); }); pushMsg("全員の 守備力が 下がった！");
       return;
@@ -2252,7 +2269,7 @@ async function enemyAction(e){
   }
   if (act === "sleep_spore"){
     pushMsg(e.name + "は 眠りの胞子を まいた！");
-    targets.forEach(function(t){ if (Math.random() < 0.35){ t.status = "sleep"; pushMsg(t.name + "は 眠ってしまった！"); } });
+    targets.forEach(function(t){ if (Math.random() < 0.35 * ailResist(t)){ t.status = "sleep"; pushMsg(t.name + "は 眠ってしまった！"); } });
     return;
   }
   if (act === "itetsuku"){
@@ -2273,12 +2290,23 @@ function winBattle(){
   document.getElementById("controls").style.display = "";
   menuEl.classList.remove("battle-menu");
   inputMode = "field";
+  const merchantAlive = G.party.some(function(m){ return m.job === "merchant" && m.status !== "dead" && m.hp > 0; });
+  let merchantBonus = 0;
+  if (merchantAlive && gold > 0){ merchantBonus = Math.floor(gold * 0.25); gold += merchantBonus; }
   G.gold += gold;
   pushMsg("戦いに 勝った！ " + exp + "の 経験値と " + gold + "ゴールドを 手に入れた！");
+  if (merchantBonus > 0) pushMsg("しょうにんの 目利きで 戦利品が 増えた！（+" + merchantBonus + "G）");
   sfx("win");
   const log = [];
   G.party.forEach(function(m){ if (m.status !== "dead") gainExp(m, exp, log); });
   log.forEach(pushMsg);
+  const thiefAlive = G.party.find(function(m){ return m.job === "thief" && m.status !== "dead" && m.hp > 0; });
+  if (thiefAlive && Math.random() < 0.3){
+    const lootTable = ["herb", "herb", "herb2", "dokukeshi_gusa", "mp_seed", "wing"];
+    const lootId = lootTable[Math.floor(Math.random() * lootTable.length)];
+    addItem(lootId, 1);
+    pushMsg(thiefAlive.name + "は 敵の すきを ついて " + ITEMS[lootId].name + "を ぬすんでいた！");
+  }
   G.party.forEach(function(m){ m._defending = false; m._sealed = false; if (m.status === "sleep") m.status = "ok"; });
   drawField();
   if (B.opts.onWin) B.opts.onWin();
