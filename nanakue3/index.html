@@ -19,13 +19,14 @@
   #fieldCard{ position:absolute; inset:0; padding:0; border:none; background:none; box-shadow:none; margin:0; }
   #partyBar{ position:absolute; top:6px; left:6px; right:6px; z-index:5; margin:0; pointer-events:none; }
   .pstat{ background:rgba(253,250,242,.88) !important; }
-  .win{ position:absolute; left:6px; right:6px; bottom:178px; z-index:6; background:rgba(43,58,103,.94); }
-  #menu{ position:absolute; left:6px; right:6px; bottom:296px; z-index:7; max-height:calc(100% - 360px);
+  .win{ position:absolute; left:6px; right:6px; top:84px; z-index:6; background:rgba(43,58,103,.94); }
+  .win.msg-hidden{ display:none; }
+  #menu{ position:absolute; left:6px; right:6px; bottom:186px; z-index:7; max-height:calc(100% - 260px);
     overflow-y:auto; background:rgba(255,253,247,.97); border:1px solid var(--border); border-radius:12px;
     padding:9px; box-shadow:0 4px 16px rgba(0,0,0,.25); margin:0; }
   #controls{ position:absolute; left:8px; right:8px; bottom:8px; z-index:6; margin:0; touch-action:none;
     display:flex; justify-content:space-between; align-items:flex-end; gap:8px; }
-  .dpad button, .abtns button{ touch-action:none; background:rgba(255,253,247,.8); }
+  .dpad button, .abtns button{ touch-action:none; background:rgba(255,253,247,.42); border-color:rgba(227,220,201,.5); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); }
   header{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
   header img.logo{ height:40px; }
   header h1{ font-size:17px; flex:1; line-height:1.25; }
@@ -62,7 +63,7 @@
   .abtns{ display:flex; flex-direction:column; gap:8px; }
   .abtns button{ width:86px; padding:13px 0; border-radius:12px; border:1px solid var(--border);
     background:var(--card); font-size:14px; font-weight:700; cursor:pointer; }
-  #battleView{ display:none; position:absolute; inset:0; margin:0; padding:8px 8px 300px; z-index:2; }
+  #battleView{ display:none; position:absolute; inset:0; margin:0; padding:196px 8px 186px; z-index:2; }
   #battleView.open{ display:block; }
   canvas#battleCanvas{ width:100%; height:100%; display:block; border-radius:10px; image-rendering:pixelated; touch-action:none; }
   #titleView{ text-align:center; padding:14px 6px; }
@@ -102,7 +103,7 @@
   <div id="battleView" class="card">
     <canvas id="battleCanvas" width="480" height="230"></canvas>
   </div>
-  <div class="win" id="msgWin">　</div>
+  <div class="win msg-hidden" id="msgWin">　</div>
   <div id="menu"><div id="menuTitle"></div><div class="menuGrid" id="menuGrid"></div></div>
   <div id="controls">
     <div class="dpad">
@@ -136,7 +137,7 @@
 
 /* ================= データ定義 ================= */
 const JOBS = {
-  hero:     { name:"ゆうしゃ", sprite:"hero",     canSpell:true,
+  hero:     { name:"ゆうしゃ", sprite:"wakka",     canSpell:true,
               lv1:{str:12,agi:8,vit:11,int:9,luk:10}, grow:{str:2.6,agi:1.8,vit:2.4,int:1.9,luk:1.6}, mpGrow:1.0,
               weapons:["wp_hinoki","wp_konbo","wp_dou","wp_tetsuyari","wp_hagane","wp_zombi","wp_dragon","wp_ouja"],
               armors:["ar_nuno","ar_tabibito","ar_kawa","ar_kusari","ar_tetsu","ar_hagane","ar_mahou","ar_dragon","ar_hikari"] },
@@ -173,6 +174,8 @@ const JOBS = {
               weapons:["wp_hinoki","wp_konbo","wp_dou","wp_tetsuyari","wp_hagane","wp_zombi","wp_dragon"],
               armors:["ar_nuno","ar_tabibito","ar_kawa","ar_kusari","ar_tetsu","ar_hagane","ar_mahou","ar_dragon","ar_hikari"] },
 };
+/* 向き別スプライト（主人公の歩行グラフィック） */
+const DIR_SPRITES = { wakka: { down: "wakka", up: "wakka_back", left: "wakka_side_l", right: "wakka_side" } };
 /* 経験値テーブル: Lv到達に必要な累計EXP（SFC版系統の約1/2に圧縮。Lv60まで） */
 const EXP_ANCHOR = {
   10:[2880,1579,2369,1973,1842,1315,1447,1278,2633], 20:[41141,34102,45805,38169,37479,27807,31258,32202,53543],
@@ -1269,13 +1272,15 @@ function loadGame(){
 /* ================= 画面・メッセージ ================= */
 const msgWin = document.getElementById("msgWin");
 let msgLines = [];
-function renderMsg(){ msgWin.innerHTML = msgLines.slice(-4).join("\n").replace(/</g, "&lt;") || "　"; }
+function renderMsg(){ msgWin.innerHTML = msgLines.slice(-4).join("\n").replace(/</g, "&lt;") || "　"; msgWin.classList.remove("msg-hidden"); }
+function hideMsgWin(){ msgWin.classList.add("msg-hidden"); }
 function pushMsg(t){ msgLines.push(t); renderMsg(); }
 let inputMode = "title"; /* title/field/say/menu/battle */
 let sayResolver = null;
 async function say(lines){
   inputMode = "say";
   for (const line of lines){ pushMsg(line); await wait(30); await waitForOK(); }
+  hideMsgWin();
   inputMode = "field";
 }
 function waitForOK(){
@@ -1398,7 +1403,14 @@ function drawField(){
   if (!G.sailing && !G.flying){
     const px = (G.x - camX) * TS, py = (G.y - camY) * TS;
     const lead = G.party[0];
-    if (lead) NF_draw(ctx, JOBS[lead.job].sprite, px, py, 2);
+    if (lead){
+      let sprName = JOBS[lead.job].sprite;
+      if (typeof DIR_SPRITES !== "undefined" && DIR_SPRITES[sprName]) sprName = DIR_SPRITES[sprName][G.dir] || sprName;
+      const spr = NF_SPRITES[sprName];
+      const sw = spr ? spr.rows[0].length : 16, sh = spr ? spr.rows.length : 16;
+      const sc = sw >= 32 ? 1 : 2;
+      NF_draw(ctx, sprName, px + Math.round((32 - sw * sc) / 2), py + (32 - sh * sc), sc);
+    }
   } else if (G.flying){
     const px = (G.x - camX) * TS, py = (G.y - camY) * TS;
     ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.arc(px + 16, py + 26, 9, 0, 7); ctx.fill();
@@ -1456,6 +1468,7 @@ const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 let moveLock = false;
 async function tryMove(dir){
   if (inputMode !== "field" || moveLock || battleState) return;
+  hideMsgWin();
   G.dir = dir;
   const d = DIRS[dir], nx = G.x + d[0], ny = G.y + d[1];
   const m = curMap();
@@ -1568,6 +1581,7 @@ async function talkTo(npc){
   inputMode = "say";
   const lines = (isNight() && npc.n) ? npc.n : (npc.d || ["……"]);
   for (const line of lines){ pushMsg(line); await waitForOK(); }
+  hideMsgWin();
   inputMode = "field";
   if (npc.ev && EVENTS[npc.ev]){ await EVENTS[npc.ev](npc); drawField(); return; }
   if (npc.kind === "inn") return doInn(npc);
