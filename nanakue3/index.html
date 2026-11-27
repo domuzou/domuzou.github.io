@@ -63,7 +63,13 @@
   .abtns{ display:flex; flex-direction:column; gap:8px; }
   .abtns button{ width:86px; padding:13px 0; border-radius:12px; border:1px solid rgba(227,220,201,.5);
     background:rgba(255,253,247,.42); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); font-size:14px; font-weight:700; cursor:pointer; }
-  #battleView{ display:none; position:absolute; inset:0; margin:0; padding:196px 8px 186px; z-index:2; }
+  #battleView{ display:none; position:absolute; top:214px; bottom:8px; left:6px; right:6px; margin:0; padding:6px; z-index:2; min-height:120px; }
+  /* 戦闘中のコマンドメニューは小さく畳む */
+  #menu.battle-menu{ bottom:8px; max-height:48%; }
+  #menu.battle-menu .menuGrid{ grid-template-columns:repeat(3,1fr); gap:5px; }
+  #menu.battle-menu .menuGrid button{ padding:9px 4px; font-size:13.5px; text-align:center; }
+  #menu.battle-menu .menuGrid button small{ font-size:10px; }
+  #menu.battle-menu #menuTitle{ margin-bottom:4px; font-size:12.5px; }
   #battleView.open{ display:block; }
   canvas#battleCanvas{ width:100%; height:100%; display:block; border-radius:10px; image-rendering:pixelated; touch-action:none; }
   #titleView{ text-align:center; padding:14px 6px; }
@@ -1853,7 +1859,8 @@ function drawBattle(){
   else { grad.addColorStop(0, "#8ec9e8"); grad.addColorStop(1, "#e8f3d8"); }
   ctx.fillStyle = grad; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.fillStyle = m.indoor ? "#3d3648" : (night ? "#2f4530" : "#6aa84f");
-  ctx.fillRect(0, cv.height - 52, cv.width, 52);
+  const groundY = Math.round(cv.height * 0.60);
+  ctx.fillRect(0, groundY, cv.width, cv.height - groundY);
   const es = battleState ? battleState.enemies.filter(function(e){ return !e.fled; }) : [];
   const totalW = es.length;
   es.forEach(function(e, i){
@@ -1862,7 +1869,7 @@ function drawBattle(){
     const sp = NF_SPRITES[e.sprite];
     const w = sp.rows[0].length * scale;
     const x = Math.round((cv.width / (totalW + 1)) * (i + 1) - w / 2);
-    const y = cv.height - 58 - sp.rows.length * scale + (e.isBoss ? 6 : 0);
+    const y = groundY - sp.rows.length * scale + 8 + (e.isBoss ? 4 : 0);
     if (battleState.hitUid === e.uid && battleState.hitUntil > Date.now()) return; /* 被弾点滅 */
     NF_draw(ctx, e.sprite, x, y, scale);
     if (e.status.sleep){ ctx.fillStyle = "#fff"; ctx.font = "bold 14px sans-serif"; ctx.fillText("Zzz", x + w - 8, y + 4); }
@@ -1892,6 +1899,8 @@ async function startBattle(specs, opts){
     buffs: G.party.map(function(){ return { atkMul: 1, defAdd: 0 }; }), orbAsked: false };
   document.getElementById("battleView").classList.add("open");
   document.getElementById("fieldCard").style.display = "none";
+  document.getElementById("controls").style.display = "none";
+  menuEl.classList.add("battle-menu");
   msgLines = [];
   const names = {};
   enemies.forEach(function(e){ names[e.name] = (names[e.name] || 0) + 1; });
@@ -2261,6 +2270,8 @@ function winBattle(){
   battleState = null;
   document.getElementById("battleView").classList.remove("open");
   document.getElementById("fieldCard").style.display = "";
+  document.getElementById("controls").style.display = "";
+  menuEl.classList.remove("battle-menu");
   inputMode = "field";
   G.gold += gold;
   pushMsg("戦いに 勝った！ " + exp + "の 経験値と " + gold + "ゴールドを 手に入れた！");
@@ -2276,6 +2287,8 @@ function loseBattle(){
   battleState = null;
   document.getElementById("battleView").classList.remove("open");
   document.getElementById("fieldCard").style.display = "";
+  document.getElementById("controls").style.display = "";
+  menuEl.classList.remove("battle-menu");
   inputMode = "field";
   G.gold = Math.floor(G.gold / 2);
   G.party.forEach(function(m){ m.status = "ok"; m.hp = 1; m._defending = false; m._sealed = false; });
@@ -2290,6 +2303,8 @@ function endBattle(){ /* 逃走成功時 */
   battleState = null;
   document.getElementById("battleView").classList.remove("open");
   document.getElementById("fieldCard").style.display = "";
+  document.getElementById("controls").style.display = "";
+  menuEl.classList.remove("battle-menu");
   inputMode = "field";
   G.party.forEach(function(m){ m._defending = false; if (m.status === "sleep") m.status = "ok"; });
   drawField();
